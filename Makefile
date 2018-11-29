@@ -3,23 +3,11 @@ CC := gcc
 CFLAGS := -g -Wall -MMD
 
 #Binary
-ifeq ($(OS),Windows_NT)
-	BIN := main.exe
-	DLE := dll
-else
-	BIN := main.out
-	DLE := so
-endif
+BIN := main.out
 
 #Directories
 IDIR := ./include
 SDIR := ./src
-
-ifeq ($(OS),Windows_NT)
-	ODIR := ./obj/windows
-else
-	ODIR := ./obj/linux
-endif
 
 #Files
 SOURCE := .c
@@ -47,10 +35,9 @@ DEPS := $(SRCS:$(SDIR)/%$(SOURCE)=$(ODIR)/%.d)
 all: $(OBJS)
 	$(COMPILE) $(OBJS) main$(SOURCE) -o $(BIN) $(LOADLIBES)
 
-dll: LOADLIBES += -lm -fPIC
-dll: LIB_NAME :=
-dll: $(OBJS)
-	$(COMPILE) -shared -o lib$(LIB_NAME).$(DLE) $(OBJS) $(LOADLIBES)
+# Build main application for debug
+debug: CFLAGS += -g -DDEBUG
+debug: all
 
 # Include all .d files
 -include $(DEPS)
@@ -60,14 +47,12 @@ $(ODIR)/%.o: $(SDIR)/%$(SOURCE)
 
 .PHONY : clean
 clean :
-	-rm $(BIN) $(OBJS) $(DEPS)
+	-rm -f obj/* *.d $(BIN)
 
 init:
 	mkdir -p include
 	mkdir -p src
 	mkdir -p obj
-	mkdir -p obj/windows
-	mkdir -p obj/linux
 
 run:
 	./$(BIN)
