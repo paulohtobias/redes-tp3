@@ -2,6 +2,8 @@
 #include "receber.h"
 
 int main(int argc, char *argv[]){
+	printf("%d\n", sizeof(mpw_cabecalho_t));
+	printf("%d\n", sizeof(mpw_segmento_t));
 	int retval;
 	int sfd = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -18,9 +20,9 @@ int main(int argc, char *argv[]){
 
 		struct sockaddr_in cliente_addr;
 		socklen_t len = sizeof cliente_addr;
-		char buffer[20];
+		char buffer[40960];
 		retval = recvfrom(sfd, buffer, sizeof buffer, 0, (struct sockaddr *) &cliente_addr, &len);
-		printf("recebi %d bytes: '%s'\n", retval, buffer);
+		printf("'%s'\n%d bytes", buffer, retval);
 	} else {
 		printf("Enviando '%s'...\n", argv[1]);
 		retval = sendto(sfd, argv[1], strlen(argv[1]) + 1, 0, (struct sockaddr *) &server_addr, sizeof server_addr);

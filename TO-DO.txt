@@ -1,0 +1,11 @@
+- todas as variáveis globais deverão ganhar mais uma dimensão para o caso (bem específico) de ter vários sockets em várias portas.
+
+- alocar dinamicamente todos os vetores estáticos dentro de uma função init.
+
+- como corromper pacotes: 
+	- se setar a flag pra corromper x%:
+		- if rand() % 101 < x: checksum++
+	- se setar a flag pra atrasar x%:
+		- if rand() % 101 < x: sleep(tempo do timer)
+	- se setar a flag pra descartar x%:
+		- if rand() % 101 < x: pula o write
