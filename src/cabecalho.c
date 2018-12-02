@@ -14,6 +14,23 @@ uint16_t calcular_checksum(const mpw_segmento_t *segmento) {
 	return 0;
 }
 
+void segmento_corrigir_endianness(mpw_segmento_t *segmento, bool leitura) {
+	uint32_t (*convert_long)(uint32_t) = htonl;
+	uint32_t (*convert_short)(uint32_t) = htons;
+
+	if (leitura) {
+		convert_long = ntohl;
+		convert_short = ntohs;
+	}
+	
+	segmento->cabecalho.socket = convert_long(segmento->cabecalho.socket);
+	segmento->cabecalho.ip_origem = convert_long(segmento->cabecalho.ip_origem);
+	segmento->cabecalho.ip_origem = convert_short(segmento->cabecalho.porta_origem);
+	segmento->cabecalho.flags = convert_short(segmento->cabecalho.flags);
+	segmento->cabecalho.tamanho_dados = convert_short(segmento->cabecalho.tamanho_dados);
+	segmento->cabecalho.checksum = convert_short(segmento->cabecalho.checksum);
+}
+
 int segmento_valido(const mpw_segmento_t *segmento, int seq_esperado) {
 	// Testa se o segmento está corrompido usando a soma de verificação.
 	if (calcular_checksum(segmento) != segmento->cabecalho.checksum) {
@@ -34,15 +51,10 @@ void enviar_ack(int sfd, mpw_cabecalho_t cabecalho, int ack) {
 	mpw_segmento_t segmento = (mpw_segmento_t){0};
 	segmento.cabecalho = cabecalho;
 
-	struct sockaddr_in addr;
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = cabecalho.ip_origem;
-	addr.sin_port = cabecalho.porta_origem;
-
-	__mpw_sendto(sfd, &segmento, (struct sockaddr *) &addr, sizeof addr);
+	__mpw_write(sfd, &segmento);
 }
 
-void __mpw_sendto(int sfd, mpw_segmento_t *segmento, const struct sockaddr *dest_addr, socklen_t addrlen) {
+void __mpw_write(int sfd, mpw_segmento_t *segmento) {
 	// Calcular checksum
 	segmento->cabecalho.checksum = calcular_checksum(segmento);
 
@@ -58,5 +70,12 @@ void __mpw_sendto(int sfd, mpw_segmento_t *segmento, const struct sockaddr *dest
 		sleep(estimated_rtt);
 	}
 
-	sendto(sfd, segmento, sizeof *segmento, 0, dest_addr, addrlen);
+	segmento_corrigir_endianness(segmento, false);
+
+	struct sockaddr_in addr;
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = segmento->cabecalho.ip_origem;
+	addr.sin_port = segmento->cabecalho.porta_origem;
+
+	sendto(sfd, segmento, sizeof *segmento, 0, (struct sockaddr *) &addr, sizeof addr);
 }

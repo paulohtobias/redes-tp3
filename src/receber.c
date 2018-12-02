@@ -17,7 +17,7 @@ void *__le_principal(void *args) {
 		indice = ntohl(segmento.cabecalho.socket);
 		mpw_conexao_t *conexao = &gconexoes[segmento.cabecalho.socket];
 		memcpy(&conexao->segmento, &segmento, sizeof segmento);
-		conexao->bytes_lidos += bytes_recebidos;
+		conexao->bytes_lidos = bytes_recebidos;
 
 		// Avisa para a função de leitura que há novos dados.
 		pthread_mutex_lock(&conexao->mutex);
@@ -27,22 +27,17 @@ void *__le_principal(void *args) {
 	}
 }
 
-int segmento_corrigir_endianness(mpw_segmento_t *segmento) {
-	segmento->cabecalho.socket = ntohl(segmento->cabecalho.socket);
-	segmento->cabecalho.tamanho_dados = ntohs(segmento->cabecalho.tamanho_dados);
-	segmento->cabecalho.checksum = ntohs(segmento->cabecalho.checksum);
-	segmento->cabecalho.flags = ntohs(segmento->cabecalho.flags);
-}
-
-ssize_t receber(int fd, void *buffer, void **buffer_cru, size_t tamanho_maximo) {
+ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, size_t *buffer_cru_tamanho) {
 	//to-do: error-checking
 	mpw_conexao_t *conexao = &gconexoes[fd];
 
 	size_t tamanho_segmento = sizeof (mpw_segmento_t);
 	int seq_esperado = 1;
-	int ack;
+	int ack = 2;
 	conexao->offset = 0;
 	conexao->bytes_lidos = 0;
+	ssize_t bytes_lidos_total = 0;
+	size_t buffer_cru_offset = 0;
 
 	int terminou = 0;
 	while (!terminou) {
@@ -54,18 +49,54 @@ ssize_t receber(int fd, void *buffer, void **buffer_cru, size_t tamanho_maximo) 
 		conexao->tem_dado = 0;
 		pthread_mutex_unlock(&conexao->mutex);
 
+		// Verifica se a conexão foi fechada no meio da transmissão.
+		if (TERMINAR_CONEXAO(conexao->segmento.cabecalho.flags)) {
+			conexao->segmento.cabecalho.flags += ACK_1;
+
+			__mpw_write(fd, &conexao->segmento);
+
+			//to-do: retirar a conexão do vetor global de conexões.
+
+			return 0;
+		}
+
 		// Tem dados novos.
 		if (buffer_cru != NULL) {
-			//memcpy(raw_buffer[rbo], conexao->segmento.);
+			// Verifica se os novos bytes não extrapolam o buffer cru.
+			if (*buffer_cru != NULL && buffer_cru_offset + conexao->bytes_lidos >= *buffer_cru_tamanho) {
+				*buffer_cru_tamanho  = buffer_cru_offset + conexao->bytes_lidos + 1;
+				*buffer_cru = realloc(*buffer_cru, buffer_cru_tamanho);
+
+				// Verifica se o realloc falhou.
+				if (*buffer_cru == NULL) {
+					fprintf(stderr, "receber: não foi possível realocar buffer_cru.\n");
+				}
+			}
+			
+			// Copia os novos dados para o buffer.
+			if (*buffer_cru != NULL) {
+				memcpy(*buffer_cru + buffer_cru_offset, &conexao->segmento, conexao->bytes_lidos);
+				buffer_cru_offset += conexao->bytes_lidos;
+			}
 		}
 
 		if (segmento_valido(&conexao->segmento, seq_esperado)) {
-			memcpy(buffer + conexao->offset, &conexao->segmento, tamanho_segmento);
-			conexao->offset += tamanho_segmento;
+			// Verifica se os novos bytes não extrapolam o buffer.
+			if (bytes_lidos_total + conexao->bytes_lidos < buffer_tamanho) {
+				// Copia os novos dados para o buffer.
+				memcpy(buffer + conexao->offset, &conexao->segmento, conexao->bytes_lidos);
 
-			ack = 3 - seq_esperado;
+				conexao->offset += conexao->bytes_lidos;
+				bytes_lidos_total += conexao->bytes_lidos;
 
-			if (GET_SEQ(conexao->segmento.cabecalho.flags) == -1) {
+				// Define o valor do ACK.
+				ack = 3 - seq_esperado;
+
+				// Verifica se todos os bytes foram enviados.
+				if (GET_SEQ(conexao->segmento.cabecalho.flags) == -1) {
+					terminou = 1;
+				}
+			} else {
 				terminou = 1;
 			}
 		} else {

@@ -72,6 +72,6 @@ int segmento_valido(const mpw_segmento_t *segmento, int ack_esperado);
 
 void enviar_ack(int sfd, mpw_cabecalho_t cabecalho, int ack);
 
-void __mpw_sendto(int sfd, mpw_segmento_t *segmento, const struct sockaddr *dest_addr, socklen_t addrlen);
+void __mpw_write(int sfd, mpw_segmento_t *segmento);
 
 #endif //CABECALHO_H

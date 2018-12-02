@@ -15,6 +15,10 @@
 #define handle_error(cod, msg)\
 	fprintf(stderr, "%3d: ", errno); perror(msg); if (cod) {exit(cod);}
 
+#define false 0
+#define true 1
+typedef char bool;
+
 extern int gquiet;
 
 #endif //UTILS_H
