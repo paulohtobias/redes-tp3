@@ -3,6 +3,11 @@
 
 #include "utils.h"
 
+/// Variáveis para controle de erros.
+extern int8_t probabilidade_corromper;
+extern int8_t probabilidade_descartar;
+extern int8_t probabilidade_atrasar;
+
 /// Número máximo de conexões simultâneas.
 #define MPW_MAX_CONEXOES 1024
 /*
@@ -19,19 +24,31 @@ enum MPW_FLAGS {
 	SEQ_1 = 0x4,
 	SEQ_2 = 0x8,
 	C_INIT = 0x10,
-	C_TERM = 0x20,
-
-	// Flags extras para testes.
-	__CORROMPIDO = 0x40,
-	__ATRASADO = 0x80,
-	__DESCARTADO = 0x100
+	C_TERM = 0x20
 };
 
+/**
+ *  Estrutua do cabeçalho:
+ * 
+ *  <----------- 32 bits ---------->
+ * +--------------------------------+
+ * |             socket             |
+ * +--------------------------------+
+ * |           ip origem            |
+ * +----------------+---------------+
+ * |      porta     |     flags     |
+ * +----------------+---------------+
+ * |     tamanho    |    checksum   |
+ * +----------------+---------------+
+ * 
+ */
 typedef struct mpw_cabecalho_t {
 	int socket;
+	in_addr_t ip_origem;
+	in_port_t porta_origem;
+	uint16_t flags;
 	uint16_t tamanho_dados;
 	uint16_t checksum;
-	uint16_t flags;
 } mpw_cabecalho_t;
 
 typedef struct mpw_segmento_t {
@@ -46,10 +63,15 @@ typedef struct mpw_segmento_t {
 #define ACEITOU_CONEXAO(flags) (flags & (C_INIT | ACK_1))
 #define TERMINAR_CONEXAO(flags) (flags & C_TERM)
 #define CONFIRMOU_TERMINO(flags) (flags & (C_TERM | ACK1))
-#define CORROMPIDO(flags) (flags & __CORROMPIDO)
-#define ATRASADO(flags) (flags & __ATRASADO)
-#define DESCARTADO(flags) (flags & __DESCARTADO)
+
+
+/// Variáveis globais
+unsigned int estimated_rtt;
 
 int segmento_valido(const mpw_segmento_t *segmento, int ack_esperado);
+
+void enviar_ack(int sfd, mpw_cabecalho_t cabecalho, int ack);
+
+void __mpw_sendto(int sfd, mpw_segmento_t *segmento, const struct sockaddr *dest_addr, socklen_t addrlen);
 
 #endif //CABECALHO_H

@@ -7,7 +7,9 @@ typedef struct mpw_conexao_t {
 	in_addr_t ip_origem;
 	in_port_t porta_origem;
 	uint8_t tem_dado;
-	uint8_t segmento;
+	ssize_t bytes_lidos;
+	size_t offset;
+	mpw_segmento_t segmento;
 
 	//contadores aqui? corrompidos, duplicados, perdidos...
 
@@ -17,6 +19,8 @@ typedef struct mpw_conexao_t {
 
 void *__le_principal(void *args);
 
-ssize_t receber(int fd, void *buffer, size_t tamanho_maximo);
+ssize_t receber(int fd, void *buffer, void **buffer_cru, size_t tamanho_maximo);
+
+ssize_t ler(int fd, void *buffer, size_t tamanho_maximo);
 
 #endif //RECEBER_H
