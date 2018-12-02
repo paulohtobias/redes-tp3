@@ -109,5 +109,5 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 }
 
 ssize_t ler(int fd, void *buffer, size_t tamanho_maximo) {
-	return receber(fd, buffer, NULL, tamanho_maximo);
+	return receber(fd, buffer, tamanho_maximo, NULL, NULL);
 }
