@@ -92,14 +92,19 @@ void __mpw_write(int sfd, mpw_segmento_t *segmento) {
 	// Calcular checksum
 	segmento->cabecalho.checksum = calcular_checksum(segmento);
 
+	// Calcula probabilidade de um pacote ser descartado (simula perda de
+	// pacote por descarte de roteadores).
 	if (rand() % 101 < probabilidade_descartar) {
 		return;
 	}
 
+	// Calcula probabilidade de um pacote ser corrompido durante o envio.
 	if (rand() % 101 < probabilidade_corromper) {
 		segmento->cabecalho.checksum++;
 	}
 
+	// Calcula a probabilidade de um pacote demorar para chegar ao destino.
+	// Utilizado para simular o estouro de temporizador.
 	if (rand() % 101 < probabilidade_atrasar) {
 		sleep(estimated_rtt);
 	}

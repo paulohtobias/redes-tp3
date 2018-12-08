@@ -24,11 +24,12 @@ enum MPW_FLAGS {
 	SEQ_1 = 0x4,
 	SEQ_2 = 0x8,
 	C_INIT = 0x10,
-	C_TERM = 0x20
+	C_TERM = 0x20,
+	D_BIT = 0x40
 };
 
 /**
- *  Estrutua do cabeçalho:
+ *  Estrutua do cabeçalho, RFC-2154:
  * 
  *  <----------- 32 bits ---------->
  * +--------------------------------+
@@ -42,6 +43,7 @@ enum MPW_FLAGS {
  * +----------------+---------------+
  * 
  */
+
 typedef struct mpw_cabecalho_t {
 	int socket;
 	in_addr_t ip_origem;
@@ -63,7 +65,7 @@ typedef struct mpw_segmento_t {
 #define ACEITOU_CONEXAO(flags) (flags & (C_INIT | ACK_1))
 #define TERMINAR_CONEXAO(flags) (flags & C_TERM)
 #define CONFIRMOU_TERMINO(flags) (flags & (C_TERM | ACK1))
-
+#define DIRTY_BIT(flags) (flags & D_BIT)
 
 /// Variáveis globais
 unsigned int estimated_rtt;

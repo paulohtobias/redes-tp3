@@ -1,8 +1,18 @@
 #include "receber.h"
 
 /// Vetor global onde serão armazenadas as informações das conexões.
-mpw_conexao_t gconexoes[MPW_MAX_CONEXOES] = {0};
-mpw_segmento_t gsegmentos[100];
+size_t gconexoes_tamanho;
+mpw_conexao_t *gconexoes;
+
+unsigned int gsegmentos_inicio = 0;
+unsigned int gsegmentos_fim = 0;
+size_t gsegmentos_tamanho;
+mpw_segmento_t *gsegmentos;
+
+void __init_receber(){
+	gconexoes = calloc(gconexoes_tamanho, sizeof(mpw_conexao_t));
+	gsegmentos = calloc(gsegmentos_tamanho, sizeof(mpw_segmento_t));
+}
 
 void *__le_principal(void *args) {
 	int sfd = *((int *) args);

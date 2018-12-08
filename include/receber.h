@@ -3,6 +3,11 @@
 
 #include "cabecalho.h"
 
+extern unsigned int gsegmentos_inicio;
+extern unsigned int gsegmentos_fim;
+extern size_t gconexoes_tamanho;
+extern size_t gsegmentos_tamanho;
+
 typedef struct mpw_conexao_t {
 	in_addr_t ip_origem;
 	in_port_t porta_origem;
@@ -16,6 +21,8 @@ typedef struct mpw_conexao_t {
 	pthread_mutex_t mutex;
 	pthread_cond_t cond;
 } mpw_conexao_t;
+
+void __init_receber();
 
 void *__le_principal(void *args);
 

@@ -1,7 +1,19 @@
-#include "enviar.h"
-#include "receber.h"
+#include "mpw.h"
+#include "opcoes.h"
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[]) {
+	opcao_t opcoes[] = {
+		OPCAO_INIT('c', tipo_int, &gconexoes_tamanho, "CONEXOES=100", "Número máximo de conexões simultâneas")
+	};
+
+	parse_args(argc, argv, opcoes, sizeof opcoes / sizeof(opcao_t));
+
+	mpw_init();
+
+	return 0;
+}
+
+int main2(int argc, char *argv[]){
 	printf("%d\n", sizeof(mpw_cabecalho_t));
 	printf("%d\n", sizeof(mpw_segmento_t));
 	int retval;
@@ -17,7 +29,6 @@ int main(int argc, char *argv[]){
 		if (retval == -1) {
 			handle_error(errno, "criar_socket_servidor-bind");
 		}
-
 		struct sockaddr_in cliente_addr;
 		socklen_t len = sizeof cliente_addr;
 		char buffer[40960];
@@ -28,6 +39,5 @@ int main(int argc, char *argv[]){
 		retval = sendto(sfd, argv[1], strlen(argv[1]) + 1, 0, (struct sockaddr *) &server_addr, sizeof server_addr);
 		printf("%d bytes escritos no socket\n", retval);
 	}
-
 	return 0;
 }
