@@ -3,16 +3,16 @@
 /// Vetor global onde serão armazenadas as informações das conexões.
 unsigned int gconexoes_indice = 0;
 size_t gconexoes_tamanho;
-mpw_conexao_t *gconexoes;
+mpw_mensagem_t *gconexoes;
 
 void __init_receber(){
-	// gconexoes = calloc(gconexoes_tamanho, sizeof(mpw_conexao_t));
+	// gconexoes = calloc(gconexoes_tamanho, sizeof(mpw_mensagem_t));
 	// gsegmentos = calloc(gsegmentos_tamanho, sizeof(mpw_segmento_t));
 }
 
 ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, size_t *buffer_cru_tamanho) {
 	//to-do: error-checking
-	mpw_conexao_t *conexao = &gconexoes[fd];
+	mpw_mensagem_t *conexao = &gconexoes[fd];
 
 	size_t tamanho_segmento = sizeof (mpw_segmento_t);
 	int seq_esperado = 1;

@@ -1,21 +1,7 @@
 #ifndef RECEBER_H
 #define RECEBER_H
 
-#include "nucleo.h"
-
-typedef struct mpw_conexao_t {
-	in_addr_t ip_origem;
-	in_port_t porta_origem;
-	uint8_t tem_dado;
-	ssize_t bytes_lidos;
-	size_t offset;
-	mpw_segmento_t segmento;
-
-	//contadores aqui? corrompidos, duplicados, perdidos...
-
-	pthread_mutex_t mutex;
-	pthread_cond_t cond;
-} mpw_conexao_t;
+#include "conexao.h"
 
 void __init_receber();
 

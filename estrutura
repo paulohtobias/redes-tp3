@@ -1,0 +1,19 @@
+UTILS
+├── NUCLEO
+│	├── cabecalho
+│	├── segmento
+│	|
+│	├── CONEXAO
+│	│	├── accept
+│	│	├── connect
+│	│	├── __write
+│	│	├── __read
+│	│	├── __processar_conexoes
+│	│	├── __processar_mensagens
+│	│	|
+│	│	├── ENVIAR
+│	│	|	└── escrever
+│	│	|
+│	│	├── RECEBER
+│	│	|	├── receber
+│	│	|	└── ler

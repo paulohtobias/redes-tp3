@@ -32,16 +32,16 @@ enum MPW_FLAGS {
 /**
  *  Estrutua do cabeçalho, RFC-2154:
  * 
- *  <----------- 32 bits ---------->
- * +--------------------------------+
- * |             socket             |
- * +--------------------------------+
- * |           ip origem            |
- * +----------------+---------------+
- * |      porta     |     flags     |
- * +----------------+---------------+
- * |     tamanho    |    checksum   |
- * +----------------+---------------+
+ *  <─────────── 32 bits ──────────>
+ * ┌────────────────────────────────┐
+ * │             socket             │
+ * ├────────────────────────────────┤
+ * │           ip origem            │
+ * ├────────────────┬───────────────┤
+ * │      porta     │     flags     │
+ * ├────────────────┼───────────────┤
+ * │     tamanho    │    checksum   │
+ * └────────────────┴───────────────┘
  * 
  */
 
@@ -68,15 +68,7 @@ typedef struct mpw_segmento_t {
 #define CONFIRMOU_TERMINO(flags) (flags & (C_TERM | ACK1))
 #define DIRTY_BIT(flags) (flags & D_BIT)
 
-/// Variáveis globais
-unsigned int estimated_rtt;
-
+// Funções
 int segmento_valido(const mpw_segmento_t *segmento, int ack_esperado);
-
-void enviar_ack(int sfd, mpw_cabecalho_t cabecalho, int ack);
-
-void __mpw_write(int sfd, mpw_segmento_t *segmento);
-
-void *__mpw_read(void *args);
 
 #endif //NUCLEO_H
