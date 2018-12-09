@@ -6,6 +6,7 @@ UTILS
 │	├── CONEXAO
 │	│	├── accept
 │	│	├── connect
+│	│	├── close
 │	│	├── __write
 │	│	├── __read
 │	│	├── __processar_conexoes

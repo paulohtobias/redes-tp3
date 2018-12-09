@@ -1,8 +1,86 @@
 #include "conexao.h"
 
+fila_t gfila_conexoes;
+fila_t gfila_mensagens;
+
 void init_conexao() {
+	int i;
 	iniciar_fila(&gfila_conexoes, sizeof(mpw_segmento_t), true);
-	iniciar_fila(&gfila_segmentos, sizeof(mpw_mensagem_t), true);
+	iniciar_fila(&gfila_mensagens, sizeof(mpw_segmento_t), true);
+	gconexoes = calloc(max_conexoes, sizeof(mpw_conexao_t));
+	for (i = 0; i < max_conexoes; i++) {
+		pthread_mutex_init(& gconexoes[i].mutex, NULL);
+		pthread_cond_init(& gconexoes[i].cond, NULL);
+	}
+}
+
+int mpw_accept(int sfd) {
+	int retval;
+	struct sockaddr_in cliente_addr;
+	socklen_t len = sizeof cliente_addr;
+	mpw_segmento_t segmento;
+
+	// Remove um pedido de conexão da fila de conexões. É bloqueante.
+	remover_fila(&gfila_conexoes, &segmento);
+
+	// Procura por um socket fd válido.
+	int sfd_cliente;
+	for (sfd_cliente = 0; sfd_cliente < max_conexoes && !gconexoes[sfd_cliente].ativo; sfd_cliente++);
+
+	if (sfd_cliente == max_conexoes) {
+		return -1;
+	}
+
+	// Adiciona a nova conexão no vetor de conexões.
+	mpw_conexao_t *conexao = &gconexoes[sfd_cliente];
+	conexao->ativo = true;
+	conexao->bytes_lidos = 0;
+	conexao->offset = 0;
+	conexao->tem_dado = 0;
+
+	// Confirma a conexão.
+	segmento.cabecalho.flags = (C_INIT | ACK_1);
+	segmento.cabecalho.socket = sfd_cliente;
+	__mpw_write(sfd, &segmento);
+
+	// Espera confirmação do cliente.
+	int tentativas = 3;
+	pthread_mutex_lock(&conexao->mutex);
+	while (!conexao->tem_dado) {
+		retval = pthread_cond_timedwait(&conexao->cond, &conexao->mutex, estimated_rtt);
+
+		// Se estourar o temporizador.
+		if (retval == ETIMEDOUT) {
+			tentativas--;
+
+			// Marca que não há dados.
+			conexao->tem_dado = 0;
+		} else {
+			// Se os dados chegaram normalmente.
+			if (retval == 0 && segmento_valido(&conexao->segmento, ACK_2) && CONEXAO_CONFIRMADA(conexao->segmento.cabecalho.flags)) {
+				break;
+			} else {
+				tentativas--;
+
+				// Marca que não há dados.
+				conexao->tem_dado = 0;
+			}
+		}
+
+		// As tentativas acabaram e não foi possível estabelecer a conexão.
+		if (tentativas == 0) {
+			conexao->ativo = false;
+			sfd_cliente = -1;
+			break;
+		} else {
+			// Reenvia o ack.
+			__mpw_write(sfd, &segmento);
+		}
+	}
+	conexao->tem_dado = 0;
+	pthread_mutex_unlock(&conexao->mutex);
+
+	return sfd_cliente;
 }
 
 void enviar_ack(int sfd, mpw_cabecalho_t cabecalho, int ack) {
@@ -45,8 +123,30 @@ void __mpw_write(int sfd, mpw_segmento_t *segmento) {
 	sendto(sfd, segmento, sizeof *segmento, 0, (struct sockaddr *) &addr, sizeof addr);
 }
 
-void *__mpw_read(void* args) {
+void *__processar_mensagens(void *args) {
+	int sfd = *(int *) args;
+	mpw_segmento_t segmento;
+	ssize_t bytes_recebidos;
+	unsigned int indice;
 
+	while (1) {
+		if (remover_fila(&gfila_mensagens, &segmento)) {
+			// Copia os dados lidos para o segmento correto.
+			indice = ntohl(segmento.cabecalho.socket);
+			mpw_conexao_t *mensagem = &gconexoes[segmento.cabecalho.socket];
+			memcpy(&mensagem->segmento, &segmento, sizeof segmento);
+			mensagem->bytes_lidos = bytes_recebidos;
+
+			// Avisa para a função de leitura que há novos dados.
+			pthread_mutex_lock(&mensagem->mutex);
+			mensagem->tem_dado = 1;
+			pthread_cond_signal(&mensagem->cond);
+			pthread_mutex_unlock(&mensagem->mutex);
+		}
+	}
+}
+
+void *__mpw_read(void* args) {
 	int sfd = *(int *) args;
 	mpw_segmento_t segmento;
 	ssize_t bytes_recebidos;
@@ -55,25 +155,13 @@ void *__mpw_read(void* args) {
 	while (1) {
 		bytes_recebidos = recvfrom(sfd, &segmento, sizeof segmento, 0, NULL, NULL);
 
-		
-		// Identifica o tipo do segmento e insere na fila correspondente.
+		// Verifica o tipo da mensagem e insere na fila correta.
 		if (INICIAR_CONEXAO(segmento.cabecalho.flags)) {
 			inserir_fila(&gfila_conexoes, &segmento);
+		} else {
+			inserir_fila(&gfila_mensagens, &segmento);
 		}
-		
-		
-		// Copia os dados lidos para o segmento correto.
-		/*indice = ntohl(segmento.cabecalho.socket);
-		mpw_mensagem_t *conexao = &gconexoes[segmento.cabecalho.socket];
-		memcpy(&conexao->segmento, &segmento, sizeof segmento);
-		conexao->bytes_lidos = bytes_recebidos;
-
-		// Avisa para a função de leitura que há novos dados.
-		pthread_mutex_lock(&conexao->mutex);
-		conexao->tem_dado = 1;
-		pthread_cond_signal(&conexao->cond);
-		pthread_mutex_unlock(&conexao->mutex);
-		*/
 	}
+
 	return NULL;
 }

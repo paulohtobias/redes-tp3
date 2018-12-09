@@ -1,9 +1,9 @@
 #ifndef ENVIAR_H
 #define ENVIAR_H
 
-#include "utils.h"
+#include "conexao.h"
 
 
-int enviar(void *dados, size_t tamanho);
+int enviar(int sockfd, void *dados, size_t tamanho);
 
 #endif //ENVIAR_H

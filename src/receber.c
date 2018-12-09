@@ -1,18 +1,20 @@
 #include "receber.h"
 
-/// Vetor global onde serão armazenadas as informações das conexões.
-unsigned int gconexoes_indice = 0;
-size_t gconexoes_tamanho;
-mpw_mensagem_t *gconexoes;
-
 void __init_receber(){
-	// gconexoes = calloc(gconexoes_tamanho, sizeof(mpw_mensagem_t));
+	// gconexoes = calloc(gconexoes_tamanho, sizeof(mpw_conexao_t));
 	// gsegmentos = calloc(gsegmentos_tamanho, sizeof(mpw_segmento_t));
 }
 
 ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, size_t *buffer_cru_tamanho) {
-	//to-do: error-checking
-	mpw_mensagem_t *conexao = &gconexoes[fd];
+	if (fd >= max_conexoes) {
+		return -1;
+	}
+
+	mpw_conexao_t *conexao = &gconexoes[fd];
+
+	if (!conexao->ativo) {
+		return -1;
+	}
 
 	size_t tamanho_segmento = sizeof (mpw_segmento_t);
 	int seq_esperado = 1;
@@ -39,6 +41,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 			__mpw_write(fd, &conexao->segmento);
 
 			//to-do: retirar a conexão do vetor global de conexões.
+			//conexao->ativo = false;
 
 			return 0;
 		}

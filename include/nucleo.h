@@ -20,13 +20,13 @@ extern int8_t probabilidade_atrasar;
 #define MPW_MAX_DADOS (MPW_MAX_SS - sizeof(mpw_cabecalho_t))
 
 enum MPW_FLAGS {
-	ACK_1 = 0x1,
-	ACK_2 = 0x2,
-	SEQ_1 = 0x4,
-	SEQ_2 = 0x8,
+	ACK_1 =  0x1,
+	ACK_2 =  0x2,
+	SEQ_1 =  0x4,
+	SEQ_2 =  0x8,
 	C_INIT = 0x10,
 	C_TERM = 0x20,
-	D_BIT = 0x40
+	D_BIT =  0x40
 };
 
 /**
@@ -64,11 +64,14 @@ typedef struct mpw_segmento_t {
 #define GET_SEQ(flags) ((flags & SEQ_1) ? 1 : (flags & SEQ_2) ? 2 : -1)
 #define INICIAR_CONEXAO(flags) (flags & C_INIT)
 #define ACEITOU_CONEXAO(flags) (flags & (C_INIT | ACK_1))
+#define CONEXAO_CONFIRMADA(flags) (flags & (C_INIT | ACK_2))
 #define TERMINAR_CONEXAO(flags) (flags & C_TERM)
 #define CONFIRMOU_TERMINO(flags) (flags & (C_TERM | ACK1))
 #define DIRTY_BIT(flags) (flags & D_BIT)
 
 // Funções
+void segmento_corrigir_endianness(mpw_segmento_t *segmento, bool leitura);
+
 int segmento_valido(const mpw_segmento_t *segmento, int ack_esperado);
 
 #endif //NUCLEO_H
