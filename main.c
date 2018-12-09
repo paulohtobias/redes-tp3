@@ -1,16 +1,19 @@
 #include "mpw.h"
 #include "opcoes.h"
+#include "fila.h"
 
 int main(int argc, char *argv[]) {
-	opcao_t opcoes[] = {
-		OPCAO_INIT('c', tipo_int, &gconexoes_tamanho, "CONEXOES=100", "Número máximo de conexões simultâneas")
+	return fila_teste();
+	
+	/*opcao_t opcoes[] = {
+		//OPCAO_INIT('c', tipo_int, &, "CONEXOES=100", "Número máximo de conexões simultâneas")
 	};
 
 	parse_args(argc, argv, opcoes, sizeof opcoes / sizeof(opcao_t));
 
 	mpw_init();
 
-	return 0;
+	return 0;*/
 }
 
 int main2(int argc, char *argv[]){

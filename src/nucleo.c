@@ -1,4 +1,7 @@
-#include "cabecalho.h"
+#include "nucleo.h"
+
+fila_t gfila_segmentos;
+fila_t gfila_conexoes;
 
 int8_t probabilidade_corromper = 0;
 int8_t probabilidade_descartar = 0;
@@ -50,7 +53,7 @@ uint16_t calcular_checksum(const mpw_segmento_t *segmento) {
 
 void segmento_corrigir_endianness(mpw_segmento_t *segmento, bool leitura) {
 	uint32_t (*convert_long)(uint32_t) = htonl;
-	uint32_t (*convert_short)(uint32_t) = htons;
+	uint16_t (*convert_short)(uint16_t) = htons;
 
 	if (leitura) {
 		convert_long = ntohl;
@@ -71,7 +74,6 @@ int segmento_valido(const mpw_segmento_t *segmento, int seq_esperado) {
 		return 0;
 	}
 
-	int flags = segmento->cabecalho.flags;
 	if (GET_SEQ(segmento->cabecalho.flags) != seq_esperado) {
 		return 0;
 	}
@@ -117,4 +119,31 @@ void __mpw_write(int sfd, mpw_segmento_t *segmento) {
 	addr.sin_port = segmento->cabecalho.porta_origem;
 
 	sendto(sfd, segmento, sizeof *segmento, 0, (struct sockaddr *) &addr, sizeof addr);
+}
+
+
+void *__mpw_read(void* args) {
+
+	int sfd = *(int *) args;
+	mpw_segmento_t segmento;
+	ssize_t bytes_recebidos;
+
+	int indice;
+	while (1) {
+		bytes_recebidos = recvfrom(sfd, &segmento, sizeof segmento, 0, NULL, NULL);
+
+		// Copia os dados lidos para o segmento correto.
+		/*indice = ntohl(segmento.cabecalho.socket);
+		mpw_conexao_t *conexao = &gconexoes[segmento.cabecalho.socket];
+		memcpy(&conexao->segmento, &segmento, sizeof segmento);
+		conexao->bytes_lidos = bytes_recebidos;
+
+		// Avisa para a função de leitura que há novos dados.
+		pthread_mutex_lock(&conexao->mutex);
+		conexao->tem_dado = 1;
+		pthread_cond_signal(&conexao->cond);
+		pthread_mutex_unlock(&conexao->mutex);
+		*/
+	}
+	return NULL;
 }

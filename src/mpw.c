@@ -2,5 +2,5 @@
 
 void mpw_init(){
 	__init_receber();
-	__init_enviar();
+	//__init_enviar();
 }

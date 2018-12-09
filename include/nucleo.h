@@ -1,7 +1,8 @@
-#ifndef CABECALHO_H
-#define CABECALHO_H
+#ifndef NUCLEO_H
+#define NUCLEO_H
 
 #include "utils.h"
+#include "fila.h"
 
 /// Variáveis para controle de erros.
 extern int8_t probabilidade_corromper;
@@ -76,4 +77,6 @@ void enviar_ack(int sfd, mpw_cabecalho_t cabecalho, int ack);
 
 void __mpw_write(int sfd, mpw_segmento_t *segmento);
 
-#endif //CABECALHO_H
+void *__mpw_read(void *args);
+
+#endif //NUCLEO_H

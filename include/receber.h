@@ -1,12 +1,7 @@
 #ifndef RECEBER_H
 #define RECEBER_H
 
-#include "cabecalho.h"
-
-extern unsigned int gsegmentos_inicio;
-extern unsigned int gsegmentos_fim;
-extern size_t gconexoes_tamanho;
-extern size_t gsegmentos_tamanho;
+#include "nucleo.h"
 
 typedef struct mpw_conexao_t {
 	in_addr_t ip_origem;
@@ -23,8 +18,6 @@ typedef struct mpw_conexao_t {
 } mpw_conexao_t;
 
 void __init_receber();
-
-void *__le_principal(void *args);
 
 /// se buffer_cru não for NULL, precisa ser *obrigatoriamente* alocado dinamicamente.
 ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, size_t *buffer_cru_tamanho);

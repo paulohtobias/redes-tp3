@@ -1,40 +1,13 @@
 #include "receber.h"
 
 /// Vetor global onde serão armazenadas as informações das conexões.
+unsigned int gconexoes_indice = 0;
 size_t gconexoes_tamanho;
 mpw_conexao_t *gconexoes;
 
-unsigned int gsegmentos_inicio = 0;
-unsigned int gsegmentos_fim = 0;
-size_t gsegmentos_tamanho;
-mpw_segmento_t *gsegmentos;
-
 void __init_receber(){
-	gconexoes = calloc(gconexoes_tamanho, sizeof(mpw_conexao_t));
-	gsegmentos = calloc(gsegmentos_tamanho, sizeof(mpw_segmento_t));
-}
-
-void *__le_principal(void *args) {
-	int sfd = *((int *) args);
-	mpw_segmento_t segmento;
-	ssize_t bytes_recebidos;
-
-	int indice;
-	while (1) {
-		bytes_recebidos = recvfrom(sfd, &segmento, sizeof segmento, 0, NULL, NULL);
-
-		// Copia os dados lidos para o segmento correto.
-		indice = ntohl(segmento.cabecalho.socket);
-		mpw_conexao_t *conexao = &gconexoes[segmento.cabecalho.socket];
-		memcpy(&conexao->segmento, &segmento, sizeof segmento);
-		conexao->bytes_lidos = bytes_recebidos;
-
-		// Avisa para a função de leitura que há novos dados.
-		pthread_mutex_lock(&conexao->mutex);
-		conexao->tem_dado = 1;
-		pthread_cond_signal(&conexao->cond);
-		pthread_mutex_unlock(&conexao->mutex);
-	}
+	// gconexoes = calloc(gconexoes_tamanho, sizeof(mpw_conexao_t));
+	// gsegmentos = calloc(gsegmentos_tamanho, sizeof(mpw_segmento_t));
 }
 
 ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, size_t *buffer_cru_tamanho) {

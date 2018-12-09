@@ -6,9 +6,6 @@
 	#include "enviar.h"
 
 	// Variáveis e tipos
-	enum {
-		
-	}
 
 	// Funções
 	void mpw_init();
