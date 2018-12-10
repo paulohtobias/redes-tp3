@@ -6,7 +6,6 @@
 typedef struct mpw_conexao_t {
 	int id;
 	uint8_t tem_dado;
-	ssize_t bytes_lidos;
 	size_t offset;
 	mpw_segmento_t segmento;
 
@@ -19,6 +18,8 @@ typedef struct mpw_conexao_t {
 /// Variáveis globais
 size_t max_conexoes;
 mpw_conexao_t *gconexoes;
+
+// Tempo em nanosegundos
 unsigned int estimated_rtt;
 
 /// Funções

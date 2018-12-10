@@ -71,6 +71,12 @@ void segmento_corrigir_endianness(mpw_segmento_t *segmento, bool leitura) {
 	segmento->cabecalho.checksum = convert_short(segmento->cabecalho.checksum);
 }
 
+int segmento_corrompido(const mpw_segmento_t *segmento) {
+	return calcular_checksum(segmento) != segmento->cabecalho.checksum;
+}
+
+//TODO: o .h diz em ack esperado e aqui fala em numero de sequencia esperado.
+// verificar essa contradição.
 int segmento_valido(const mpw_segmento_t *segmento, int seq_esperado) {
 	// Testa se o segmento está corrompido usando a soma de verificação.
 	if (calcular_checksum(segmento) != segmento->cabecalho.checksum) {

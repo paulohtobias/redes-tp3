@@ -20,8 +20,12 @@ int mpw_accept(int sfd) {
 	socklen_t len = sizeof cliente_addr;
 	mpw_segmento_t segmento;
 
-	// Remove um pedido de conexão da fila de conexões. É bloqueante.
-	remover_fila(&gfila_conexoes, &segmento);
+	do {
+		// Remove um pedido de conexão da fila de conexões. É bloqueante.
+		remover_fila(&gfila_conexoes, &segmento);
+	
+	// Repete enquanto houver problema com o segmento.
+	} while (segmento_corrompido(&segmento) || !CHECHAR_FLAG(segmento, INICIAR_CONEXAO));
 
 	// Procura por um socket fd válido.
 	int sfd_cliente;
@@ -34,28 +38,29 @@ int mpw_accept(int sfd) {
 	// Adiciona a nova conexão no vetor de conexões.
 	mpw_conexao_t *conexao = &gconexoes[sfd_cliente];
 	conexao->ativo = true;
-	conexao->bytes_lidos = 0;
 	conexao->offset = 0;
 	conexao->tem_dado = 0;
 	conexao->id = segmento.cabecalho.socket;
 
 	// Confirma a conexão.
-	segmento.cabecalho.flags = (C_INIT | ACK_1);
+	DEFINIR_FLAG(segmento, ACEITOU_CONEXAO);
 	segmento.cabecalho.socket = sfd_cliente;
 	pthread_mutex_lock(&conexao->mutex);
 	__mpw_write(sfd, &segmento);
 
 	// Espera confirmação do cliente.
-	int tentativas = 3;
+	//TODO: otimizar
 	while (!conexao->tem_dado) {
 		retval = pthread_cond_timedwait(&conexao->cond, &conexao->mutex, estimated_rtt);
 
 		// Se estourar o temporizador.
 		if (retval == ETIMEDOUT) {
-			tentativas--;
 
 			// Marca que não há dados.
 			conexao->tem_dado = 0;
+
+			// Reenvia o ack.
+			__mpw_write(sfd, &segmento);
 		} else {
 			// Verifica se houve um despertar falso da thread.
 			if (!conexao->tem_dado) {
@@ -63,24 +68,16 @@ int mpw_accept(int sfd) {
 			}
 
 			// Se os dados chegaram normalmente.
-			if (retval == 0 && segmento_valido(&conexao->segmento, ACK_2) && CONEXAO_CONFIRMADA(conexao->segmento.cabecalho.flags)) {
+			if (retval == 0 && !segmento_corrompido(&segmento) && CHECHAR_FLAG(conexao->segmento, CONEXAO_CONFIRMADA)) {
 				break;
 			} else {
-				tentativas--;
 
 				// Marca que não há dados.
 				conexao->tem_dado = 0;
-			}
-		}
 
-		// As tentativas acabaram e não foi possível estabelecer a conexão.
-		if (tentativas == 0) {
-			conexao->ativo = false;
-			sfd_cliente = -1;
-			break;
-		} else {
-			// Reenvia o ack.
-			__mpw_write(sfd, &segmento);
+				// Reenvia o ack.
+				__mpw_write(sfd, &segmento);
+			}
 		}
 	}
 	conexao->tem_dado = 0;
@@ -106,7 +103,6 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 	// Adiciona a conexão no vetor de conexões.
 	mpw_conexao_t *conexao = &gconexoes[id];
 	conexao->ativo = true;
-	conexao->bytes_lidos = 0;
 	conexao->offset = 0;
 	conexao->tem_dado = 0;
 
@@ -141,7 +137,7 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 			}
 
 			// Se os dados chegaram normalmente.
-			if (retval == 0 && segmento_valido(&conexao->segmento, ACK_1) && ACEITOU_CONEXAO(conexao->segmento.cabecalho.flags)) {
+			if (retval == 0 && segmento_valido(&conexao->segmento, ACK_1) && CHECHAR_FLAG(conexao->segmento, ACEITOU_CONEXAO)) {
 				break;
 			} else {
 				// Marca que não há dados.
@@ -156,8 +152,8 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 	pthread_mutex_unlock(&conexao->mutex);
 
 	// Confirma a conexão
-	segmento.cabecalho.flags = (C_INIT & ACK_2);
-	__mpw_write(sfd, &segmento);
+	//segmento.cabecalho.flags = (C_INIT & ACK_2);
+	//__mpw_write(sfd, &segmento);
 
 	return 0;
 }
@@ -205,22 +201,31 @@ void __mpw_write(int sfd, mpw_segmento_t *segmento) {
 void *__processar_mensagens(void *args) {
 	int sfd = *(int *) args;
 	mpw_segmento_t segmento;
-	ssize_t bytes_recebidos;
 	unsigned int indice;
 
 	while (1) {
 		if (remover_fila(&gfila_mensagens, &segmento)) {
+
 			// Copia os dados lidos para o segmento correto.
 			indice = ntohl(segmento.cabecalho.socket);
-			mpw_conexao_t *mensagem = &gconexoes[segmento.cabecalho.socket];
-			memcpy(&mensagem->segmento, &segmento, sizeof segmento);
-			mensagem->bytes_lidos = bytes_recebidos;
+			mpw_conexao_t *conexao = &gconexoes[segmento.cabecalho.socket];
+			memcpy(&conexao->segmento, &segmento, sizeof segmento);
+
+			// Verifica confirmação do accept.
+			if (!segmento_corrompido(&conexao->segmento) && CHECHAR_FLAG(conexao->segmento, ACEITOU_CONEXAO)) {
+				// Seta o id da conexão certa.
+				segmento.cabecalho.socket = conexao->id;
+
+				// Enviar a confirmação da conexão.
+				DEFINIR_FLAG(segmento, CONEXAO_CONFIRMADA);
+				__mpw_write(sfd, &segmento);
+			}
 
 			// Avisa para a função de leitura que há novos dados.
-			pthread_mutex_lock(&mensagem->mutex);
-			mensagem->tem_dado = 1;
-			pthread_cond_signal(&mensagem->cond);
-			pthread_mutex_unlock(&mensagem->mutex);
+			pthread_mutex_lock(&conexao->mutex);
+			conexao->tem_dado = 1;
+			pthread_cond_signal(&conexao->cond);
+			pthread_mutex_unlock(&conexao->mutex);
 		}
 	}
 }
@@ -234,12 +239,16 @@ void *__mpw_read(void* args) {
 	while (1) {
 		bytes_recebidos = recvfrom(sfd, &segmento, sizeof segmento, 0, NULL, NULL);
 
-		// Verifica o tipo da mensagem e insere na fila correta.
-		if (INICIAR_CONEXAO(segmento.cabecalho.flags)) {
-			//TODO: verificar se não é duplicata
-			inserir_fila(&gfila_conexoes, &segmento);
+		if (bytes_recebidos == -1) {
+			handle_error(0, "__mpw_read");
 		} else {
-			inserir_fila(&gfila_mensagens, &segmento);
+			// Verifica o tipo da mensagem e insere na fila correta.
+			if (CHECHAR_FLAG(segmento, INICIAR_CONEXAO)) {
+				//TODO: verificar se não é duplicata
+				inserir_fila(&gfila_conexoes, &segmento);
+			} else {
+				inserir_fila(&gfila_mensagens, &segmento);
+			}
 		}
 	}
 
