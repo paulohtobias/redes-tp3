@@ -4,8 +4,7 @@
 #include "nucleo.h"
 
 typedef struct mpw_conexao_t {
-	in_addr_t ip_origem;
-	in_port_t porta_origem;
+	int id;
 	uint8_t tem_dado;
 	ssize_t bytes_lidos;
 	size_t offset;
@@ -19,10 +18,16 @@ typedef struct mpw_conexao_t {
 
 /// Variáveis globais
 size_t max_conexoes;
-mpw_conexao_t *gconexoes = NULL;
+mpw_conexao_t *gconexoes;
 unsigned int estimated_rtt;
 
 /// Funções
+void init_conexao();
+
+int mpw_accept(int sfd);
+
+int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen);
+
 void enviar_ack(int sfd, mpw_cabecalho_t cabecalho, int ack);
 
 void __mpw_write(int sfd, mpw_segmento_t *segmento);

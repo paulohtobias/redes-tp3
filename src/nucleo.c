@@ -48,6 +48,9 @@ uint16_t calcular_checksum(const mpw_segmento_t *segmento) {
 		checksum = __soma_checksum(checksum, dado.val);
 	}
 
+	// Iverte os bits.
+	checksum = ~checksum;
+
 	return checksum;
 }
 
