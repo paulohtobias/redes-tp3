@@ -13,6 +13,7 @@
 
 #include <netinet/in.h>
 #include <netinet/udp.h>
+#include <arpa/inet.h>
 
 #define handle_error(cod, msg)\
 	fprintf(stderr, "%3d: ", errno); perror(msg); if (cod) {exit(cod);}

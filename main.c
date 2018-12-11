@@ -1,7 +1,6 @@
 #include "mpw.h"
 #include "opcoes.h"
 #include "fila.h"
-#include <arpa/inet.h>
 
 int maina(int argc, char *argv[]) {
 	srand(1);
@@ -74,9 +73,9 @@ int main2(int argc, char *argv[]);
 int main(int argc, char *argv[]) {
 	//return main2(argc, argv);
 	if (argc > 1) {
-		return maina(argc, argv);
-	} else {
 		return mainc(argc, argv);
+	} else {
+		return maina(argc, argv);
 	}
 }
 

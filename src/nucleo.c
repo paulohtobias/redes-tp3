@@ -65,7 +65,7 @@ void segmento_corrigir_endianness(mpw_segmento_t *segmento, bool leitura) {
 	
 	segmento->cabecalho.socket = convert_long(segmento->cabecalho.socket);
 	segmento->cabecalho.ip_origem = convert_long(segmento->cabecalho.ip_origem);
-	segmento->cabecalho.ip_origem = convert_short(segmento->cabecalho.porta_origem);
+	segmento->cabecalho.porta_origem = convert_short(segmento->cabecalho.porta_origem);
 	segmento->cabecalho.flags = convert_short(segmento->cabecalho.flags);
 	segmento->cabecalho.tamanho_dados = convert_short(segmento->cabecalho.tamanho_dados);
 	segmento->cabecalho.checksum = convert_short(segmento->cabecalho.checksum);

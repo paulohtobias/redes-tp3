@@ -11,8 +11,8 @@ void *__processar_mensagens(void *args);
 
 void init_conexoes(int sfd) {
 	int i;
-	iniciar_fila(&gfila_conexoes, sizeof(mpw_segmento_t), true);
-	iniciar_fila(&gfila_mensagens, sizeof(mpw_segmento_t), true);
+	iniciar_fila(&gfila_conexoes, sizeof(mpw_conexao_t), true);
+	iniciar_fila(&gfila_mensagens, sizeof(mpw_conexao_t), true);
 	gconexoes = calloc(max_conexoes, sizeof(mpw_conexao_t));
 	for (i = 0; i < max_conexoes; i++) {
 		pthread_mutex_init(& gconexoes[i].mutex, NULL);
@@ -27,14 +27,15 @@ void init_conexoes(int sfd) {
 
 int mpw_accept(int sfd) {
 	int retval;
-	mpw_segmento_t segmento;
+	mpw_conexao_t pedido_conexao;
+	mpw_segmento_t *segmento = &pedido_conexao.segmento;
 
 	do {
 		// Remove um pedido de conexão da fila de conexões. É bloqueante.
-		remover_fila(&gfila_conexoes, &segmento);
+		remover_fila(&gfila_conexoes, &pedido_conexao);
 	
 	// Repete enquanto houver problema com o segmento.
-	} while (segmento_corrompido(&segmento) || !CHECHAR_FLAG(segmento, INICIAR_CONEXAO));
+	} while (segmento_corrompido(segmento) || !CHECHAR_FLAG(*segmento, INICIAR_CONEXAO));
 
 	// Procura por um socket fd válido.
 	// TODO: otimizar este for
@@ -51,17 +52,17 @@ int mpw_accept(int sfd) {
 	conexao->estado = MPW_CONEXAO_CONECTANDO;
 	conexao->offset = 0;
 	conexao->tem_dado = 0;
-	conexao->id = segmento.cabecalho.socket;
-	conexao->ip_origem = segmento.cabecalho.ip_origem;
-	conexao->porta_origem = segmento.cabecalho.porta_origem;
+	conexao->id = segmento->cabecalho.socket;
+	conexao->ip_origem = pedido_conexao.ip_origem;
+	conexao->porta_origem = pedido_conexao.porta_origem;
 	
 	pthread_mutex_unlock(&mutex_conexoes);
 
 	// Confirma a conexão.
-	DEFINIR_FLAG(segmento, ACEITOU_CONEXAO);
-	segmento.cabecalho.socket = sfd_cliente;
+	DEFINIR_FLAG(*segmento, ACEITOU_CONEXAO);
+	segmento->cabecalho.socket = sfd_cliente;
 	pthread_mutex_lock(&conexao->mutex);
-	__mpw_write(sfd, &segmento);
+	__mpw_write(sfd, segmento);
 
 	// Espera confirmação do cliente.
 	//TODO: otimizar
@@ -75,7 +76,7 @@ int mpw_accept(int sfd) {
 			conexao->tem_dado = 0;
 
 			// Reenvia o ack.
-			__mpw_write(sfd, &segmento);
+			__mpw_write(sfd, segmento);
 		} else {
 			// Verifica se houve um despertar falso da thread.
 			if (!conexao->tem_dado) {
@@ -83,7 +84,7 @@ int mpw_accept(int sfd) {
 			}
 
 			// Se os dados chegaram normalmente.
-			if (retval == 0 && !segmento_corrompido(&segmento) && CHECHAR_FLAG(conexao->segmento, CONEXAO_CONFIRMADA)) {
+			if (retval == 0 && !segmento_corrompido(segmento) && CHECHAR_FLAG(conexao->segmento, CONEXAO_CONFIRMADA)) {
 				break;
 			} else {
 
@@ -91,7 +92,7 @@ int mpw_accept(int sfd) {
 				conexao->tem_dado = 0;
 
 				// Reenvia o ack.
-				__mpw_write(sfd, &segmento);
+				__mpw_write(sfd, segmento);
 			}
 		}
 	}
@@ -103,6 +104,7 @@ int mpw_accept(int sfd) {
 
 int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 	int retval;
+	mpw_conexao_t mensagem_conexao;
 	mpw_segmento_t segmento;
 
 	// Procura por uma posição vazia na lista de conexões.
@@ -160,8 +162,8 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 				conexao->estado = MPW_CONEXAO_ESTABELECIDA;
 				pthread_mutex_unlock(&mutex_conexoes);
 				conexao->id = conexao->segmento.cabecalho.socket;
-				conexao->ip_origem = conexao->segmento.cabecalho.ip_origem;
-				conexao->porta_origem = conexao->segmento.cabecalho.porta_origem;
+				/*conexao->ip_origem = conexao->segmento.cabecalho.ip_origem;
+				conexao->porta_origem = conexao->segmento.cabecalho.porta_origem;*/
 				break;
 			} else {
 				// Marca que não há dados.
@@ -217,9 +219,10 @@ void __mpw_write(int sfd, mpw_segmento_t *segmento) {
 	addr.sin_addr.s_addr = segmento->cabecalho.ip_origem;
 	addr.sin_port = segmento->cabecalho.porta_origem;
 
-	segmento_corrigir_endianness(segmento, false);
+	mpw_segmento_t copia = *segmento;
+	segmento_corrigir_endianness(&copia, false);
 
-	int bytes_escritos = sendto(sfd, segmento, sizeof *segmento, 0, (struct sockaddr *) &addr, sizeof addr);
+	int bytes_escritos = sendto(sfd, &copia, sizeof copia, 0, (struct sockaddr *) &addr, sizeof addr);
 
 	if (!gquiet) {
 		printf("%s: bytes_escritos: %ld\n", __FUNCTION__, bytes_escritos);
@@ -228,23 +231,28 @@ void __mpw_write(int sfd, mpw_segmento_t *segmento) {
 
 void *__processar_mensagens(void *args) {
 	int sfd = *(int *) args;
-	mpw_segmento_t segmento;
+	mpw_conexao_t mensagem_conexao;
 	unsigned int indice;
 
 	while (1) {
-		if (remover_fila(&gfila_mensagens, &segmento)) {
+		if (remover_fila(&gfila_mensagens, &mensagem_conexao)) {
 
 			// Copia os dados lidos para o segmento correto.
-			indice = ntohl(segmento.cabecalho.socket);
+			indice = ntohl(mensagem_conexao.segmento.cabecalho.socket);
 			mpw_conexao_t *conexao = &gconexoes[indice];
-			memcpy(&conexao->segmento, &segmento, sizeof segmento);
-
-			// Verifica confirmação do accept.
-			if (!segmento_corrompido(&conexao->segmento) && CHECHAR_FLAG(conexao->segmento, ACEITOU_CONEXAO)) {
-				// Enviar a confirmação da conexão.
-				DEFINIR_FLAG(segmento, CONEXAO_CONFIRMADA);
-				__mpw_write(sfd, &segmento);
+			memcpy(&conexao->segmento, &mensagem_conexao.segmento, sizeof mensagem_conexao.segmento);
+			if (!segmento_corrompido(&conexao->segmento)) {
+				conexao->ip_origem = mensagem_conexao.ip_origem;
+				conexao->porta_origem = mensagem_conexao.porta_origem;
+				
+				// Verifica confirmação do accept.
+				if (CHECHAR_FLAG(conexao->segmento, ACEITOU_CONEXAO)) {
+					// Enviar a confirmação da conexão.
+					DEFINIR_FLAG(mensagem_conexao.segmento, CONEXAO_CONFIRMADA);
+					__mpw_write(sfd, &mensagem_conexao.segmento);
+				}
 			}
+
 
 			// Avisa para a função de leitura que há novos dados.
 			pthread_mutex_lock(&conexao->mutex);
@@ -277,7 +285,7 @@ bool processar_conexoes(){
 
 void *__mpw_read(void* args) {
 	int sfd = *(int *) args;
-	mpw_segmento_t segmento;
+	mpw_conexao_t conexao;
 	struct sockaddr_in addr;
 	socklen_t addr_len = sizeof addr;
 	ssize_t bytes_recebidos;
@@ -286,39 +294,43 @@ void *__mpw_read(void* args) {
 		printf("Thread leitura %d\n", sfd);
 	}
 
-	char buffer[1024];
-
 	int i, id;
+	unsigned int indice;
 	while (1) {
-		bytes_recebidos = recvfrom(sfd, buffer, sizeof buffer, 0, (struct sockaddr *) &addr, &addr_len);
-		//bytes_recebidos = recvfrom(sfd, &segmento, sizeof segmento, 0, (struct sockaddr *) &addr, &addr_len);
+		bytes_recebidos = recvfrom(sfd, &conexao.segmento, sizeof conexao.segmento, 0, (struct sockaddr *) &addr, &addr_len);
 
 		if (!gquiet) {
 			printf("%s: bytes recebidos: %ld\n", __FUNCTION__, bytes_recebidos);
 		}
 
-		return NULL;
-
 		if (bytes_recebidos == -1) {
 			handle_error(0, "__mpw_read");
 		} else {
+			segmento_corrigir_endianness(&conexao.segmento, true);
+
 			// Define ip e porta de origem do segmento.
-			segmento.cabecalho.ip_origem = addr.sin_addr.s_addr;
-			segmento.cabecalho.porta_origem = addr.sin_port;
+			if (!segmento_corrompido(&conexao.segmento)) {
+				conexao.ip_origem = addr.sin_addr.s_addr;
+				conexao.porta_origem = addr.sin_port;
+			}
+
+			if (!gquiet) {
+				printf("Segmento recebido de %s:%d\n", inet_ntoa(addr.sin_addr), conexao.segmento.cabecalho.porta_origem);
+			}
 
 			// Verifica o tipo da mensagem e insere na fila correta.
-			if (CHECHAR_FLAG(segmento, INICIAR_CONEXAO)) {
+			if (CHECHAR_FLAG(conexao.segmento, INICIAR_CONEXAO)) {
 				// Se a conexão já foi iniciada (e ainda não foi estabelecida), não a coloque na fila de conexões.
 				//processar_conexoes();
 
 				//TODO: APAGAR ISSO AQUI E CHAMAR A processar_conexões quando ela tiver pronta
 				pthread_mutex_lock(&mutex_conexoes);
-				id = segmento.cabecalho.socket;
+				id = conexao.segmento.cabecalho.socket;
 				for (i = 0; i < max_conexoes; i++) {
 					if (gconexoes[i].estado == MPW_CONEXAO_CONECTANDO && 
 						gconexoes[i].id == id && 
-						gconexoes[i].ip_origem == segmento.cabecalho.ip_origem && 
-						gconexoes[i].porta_origem == segmento.cabecalho.porta_origem) {
+						gconexoes[i].ip_origem == conexao.segmento.cabecalho.ip_origem && 
+						gconexoes[i].porta_origem == conexao.segmento.cabecalho.porta_origem) {
 						
 						pthread_mutex_unlock(&mutex_conexoes);
 						continue;
@@ -327,10 +339,10 @@ void *__mpw_read(void* args) {
 				pthread_mutex_unlock(&mutex_conexoes);
 
 				//TROCAR:
-				inserir_fila(&gfila_conexoes, &segmento);
-				//inserir_fila(&gfila_filanova_millas_AQUI, &segmento);
+				inserir_fila(&gfila_conexoes, &conexao);
+				//inserir_fila(&gfila_filanova_millas_AQUI, &conexao);
 			} else {
-				inserir_fila(&gfila_mensagens, &segmento);
+				inserir_fila(&gfila_mensagens, &conexao);
 			}
 		}
 	}
