@@ -70,6 +70,7 @@ typedef struct mpw_segmento_t {
 #define DIRTY_BIT (D_BIT)
 
 #define CHECHAR_FLAG(segmento, flag) ((segmento).cabecalho.flags & flag)
+#define CHECHAR_FLAG_EXCLUSIVO(segmento, flag) ((segmento).cabecalho.flags == flag)
 #define DEFINIR_FLAG(segmento, flag) (segmento).cabecalho.flags = flag
 
 // Funções

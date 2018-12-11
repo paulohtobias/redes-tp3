@@ -35,7 +35,7 @@ int mpw_accept(int sfd) {
 		remover_fila(&gfila_conexoes, &pedido_conexao);
 	
 	// Repete enquanto houver problema com o segmento.
-	} while (segmento_corrompido(segmento) || !CHECHAR_FLAG(*segmento, INICIAR_CONEXAO));
+	} while (segmento_corrompido(segmento) || !CHECHAR_FLAG_EXCLUSIVO(*segmento, INICIAR_CONEXAO));
 
 	// Procura por um socket fd válido.
 	// TODO: otimizar este for
@@ -84,7 +84,7 @@ int mpw_accept(int sfd) {
 			}
 
 			// Se os dados chegaram normalmente.
-			if (retval == 0 && !segmento_corrompido(segmento) && CHECHAR_FLAG(conexao->segmento, CONEXAO_CONFIRMADA)) {
+			if (retval == 0 && !segmento_corrompido(segmento) && CHECHAR_FLAG_EXCLUSIVO(conexao->segmento, CONEXAO_CONFIRMADA)) {
 				break;
 			} else {
 
@@ -138,7 +138,13 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 
 
 	// Espera mensagem de conexão aceita.
+	if(!gquiet){
+		printf("Antes do while\n");
+	}
 	while (!conexao->tem_dado) {
+		if(!gquiet){
+			printf("Espera mensagem de conexão aceita.\n");
+		}
 		retval = mpw_rtt(&conexao->cond, &conexao->mutex, gestimated_rtt);
 
 		// Se estourar o temporizador.
@@ -156,7 +162,10 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 			}
 
 			// Se os dados chegaram normalmente.
-			if (retval == 0 && segmento_valido(&conexao->segmento, ACK_1) && CHECHAR_FLAG(conexao->segmento, ACEITOU_CONEXAO)) {
+			if(!gquiet){
+				printf("Se os dados chegaram normalmente\n");
+			}
+			if (retval == 0 && CHECHAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
 				// Marca a conexão como ativa e define os atributos de multiplexação.
 				pthread_mutex_lock(&mutex_conexoes);
 				conexao->estado = MPW_CONEXAO_ESTABELECIDA;
@@ -164,8 +173,14 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 				conexao->id = conexao->segmento.cabecalho.socket;
 				/*conexao->ip_origem = conexao->segmento.cabecalho.ip_origem;
 				conexao->porta_origem = conexao->segmento.cabecalho.porta_origem;*/
+				if(!gquiet){
+					printf("Marca a conexão como ativa e define os atributos de multiplexação\n");
+				}
 				break;
 			} else {
+				if(!gquiet){
+					printf("Solicita novamente a abertura de conexão\n");
+				}
 				// Marca que não há dados.
 				conexao->tem_dado = 0;
 
@@ -181,6 +196,9 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 	//segmento.cabecalho.flags = (C_INIT & ACK_2);
 	//__mpw_write(sfd, &segmento);
 
+	if(!gquiet){
+		printf("Finalizacao\n");
+	}
 	return 0;
 }
 
@@ -246,11 +264,15 @@ void *__processar_mensagens(void *args) {
 				conexao->porta_origem = mensagem_conexao.porta_origem;
 				
 				// Verifica confirmação do accept.
-				if (CHECHAR_FLAG(conexao->segmento, ACEITOU_CONEXAO)) {
+				pthread_mutex_lock(&conexao->mutex);
+				if (CHECHAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
 					// Enviar a confirmação da conexão.
 					DEFINIR_FLAG(mensagem_conexao.segmento, CONEXAO_CONFIRMADA);
+					mensagem_conexao.segmento.cabecalho.ip_origem = mensagem_conexao.ip_origem;
+					mensagem_conexao.segmento.cabecalho.porta_origem = mensagem_conexao.porta_origem;
 					__mpw_write(sfd, &mensagem_conexao.segmento);
 				}
+				pthread_mutex_unlock(&conexao->mutex);
 			}
 
 
@@ -316,10 +338,20 @@ void *__mpw_read(void* args) {
 
 			if (!gquiet) {
 				printf("Segmento recebido de %s:%d\n", inet_ntoa(addr.sin_addr), conexao.segmento.cabecalho.porta_origem);
+				printf(
+                    "\tsocket: %d\n"
+                    "\tip origem: %d"
+                    "\tporta %d | flags: %d\n"
+                    "\ttamanho: %d | checksum: %d\n\n",
+                    conexao.segmento.cabecalho.socket,
+                    conexao.segmento.cabecalho.ip_origem,
+                    conexao.segmento.cabecalho.porta_origem, conexao.segmento.cabecalho.flags,
+                    conexao.segmento.cabecalho.tamanho_dados, conexao.segmento.cabecalho.checksum
+                );
 			}
 
 			// Verifica o tipo da mensagem e insere na fila correta.
-			if (CHECHAR_FLAG(conexao.segmento, INICIAR_CONEXAO)) {
+			if (CHECHAR_FLAG_EXCLUSIVO(conexao.segmento, INICIAR_CONEXAO)) {
 				// Se a conexão já foi iniciada (e ainda não foi estabelecida), não a coloque na fila de conexões.
 				//processar_conexoes();
 

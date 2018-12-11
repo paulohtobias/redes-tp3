@@ -42,7 +42,7 @@ int maina(int argc, char *argv[]) {
 int mainc(int argc, char *argv[]) {
 	srand(1);
 	opcao_t opcoes[] = {
-		OPCAO_INIT('R', tipo_int, &gestimated_rtt, "RTT=2000", "Estimated RTT em milissegundos"),
+		OPCAO_INIT('R', tipo_int, &gestimated_rtt, "RTT=100000", "Estimated RTT em milissegundos"),
 		OPCAO_INIT('C', tipo_double, &probabilidade_corromper, "PROB=0", "Probabilidade de corromper pacotes"),
 		OPCAO_INIT('D', tipo_double, &probabilidade_descartar, "PROB=0", "Probabilidade de descartar pacotes"),
 		OPCAO_INIT('A', tipo_double, &probabilidade_atrasar, "PROB=0", "Probabilidade de atrasar pacotes"),
@@ -58,9 +58,19 @@ int mainc(int argc, char *argv[]) {
 	struct sockaddr_in server_addr;
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_addr.s_addr = INADDR_ANY;
-	//inet_pton(AF_INET, "localhost", &server_addr.sin_addr.s_addr);
+	inet_pton(AF_INET, "192.168.0.106", &server_addr.sin_addr.s_addr);
 	server_addr.sin_port = htons(8080);
 
+	struct sockaddr_in srv_addr;
+	srv_addr.sin_family = AF_INET;
+	srv_addr.sin_addr.s_addr = INADDR_ANY;
+	srv_addr.sin_port = htons(9998);
+	
+	int retval = bind(sfd, (struct sockaddr *) &srv_addr, sizeof(srv_addr));
+	if (retval == -1) {
+		handle_error(errno, "criar_socket_servidor-bind");
+	}
+	
 	init_conexoes(sfd);
 
 	mpw_connect(sfd, (const struct sockaddr*)&server_addr, sizeof(struct sockaddr_in));
@@ -71,6 +81,7 @@ int mainc(int argc, char *argv[]) {
 int main2(int argc, char *argv[]);
 
 int main(int argc, char *argv[]) {
+	return mainc(argc, argv);
 	//return main2(argc, argv);
 	if (argc > 1) {
 		return mainc(argc, argv);
