@@ -1,10 +1,5 @@
 #include "receber.h"
 
-void __init_receber(){
-	// gconexoes = calloc(gconexoes_tamanho, sizeof(mpw_conexao_t));
-	// gsegmentos = calloc(gsegmentos_tamanho, sizeof(mpw_segmento_t));
-}
-
 ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, size_t *buffer_cru_tamanho) {
 	if (fd >= max_conexoes) {
 		return -1;
@@ -17,11 +12,19 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 	}
 
 	//size_t tamanho_segmento = sizeof (mpw_segmento_t);
+	mpw_segmento_t segmento_ack;
 	int seq_esperado = 1;
-	int ack = 2;
+	int seq_recebido;
+	int ack = ACK_1;
 	conexao->offset = 0;
 	ssize_t bytes_lidos_total = 0;
 	size_t buffer_cru_offset = 0;
+
+	// Inicializa o segmento para enviar os ACKS.
+	segmento_ack.cabecalho.socket = conexao->id;
+	segmento_ack.cabecalho.ip_origem = conexao->ip_origem;
+	segmento_ack.cabecalho.porta_origem = conexao->porta_origem;
+	segmento_ack.cabecalho.tamanho_dados = 0;
 
 	int terminou = 0;
 	while (!terminou) {
@@ -60,35 +63,38 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 
 			// Copia os novos dados para o buffer.
 			if (*buffer_cru != NULL) {
-				memcpy(*buffer_cru + buffer_cru_offset, &conexao->segmento, conexao->segmento.cabecalho.tamanho_dados);
+				memcpy(*buffer_cru + buffer_cru_offset, &conexao->segmento.dados, conexao->segmento.cabecalho.tamanho_dados);
 				buffer_cru_offset += conexao->segmento.cabecalho.tamanho_dados;
 			}
 		}
 
-		if (!segmento_corrompido(&conexao->segmento) && GET_SEQ(conexao->segmento) == seq_esperado) {
+
+		seq_recebido = GET_SEQ(conexao->segmento);
+		if (!segmento_corrompido(&conexao->segmento) && (seq_recebido == seq_esperado || seq_recebido == -1)) {
 			// Verifica se os novos bytes não extrapolam o buffer.
 			if (bytes_lidos_total + conexao->segmento.cabecalho.tamanho_dados < buffer_tamanho) {
 				// Copia os novos dados para o buffer.
-				memcpy(buffer + conexao->offset, &conexao->segmento, conexao->segmento.cabecalho.tamanho_dados);
+				memcpy(buffer + conexao->offset, &conexao->segmento.dados, conexao->segmento.cabecalho.tamanho_dados);
 
 				conexao->offset += conexao->segmento.cabecalho.tamanho_dados;
 				bytes_lidos_total += conexao->segmento.cabecalho.tamanho_dados;
 
 				// Define o valor do ACK.
-				ack = 3 - seq_esperado;
+				ack = seq_esperado;
+				seq_esperado = 3 - seq_esperado;
 
 				// Verifica se todos os bytes foram enviados.
-				if (GET_SEQ(conexao->segmento) == -1) {
+				if (seq_recebido == -1) {
 					terminou = 1;
 				}
 			} else {
 				terminou = 1;
 			}
 		} else {
-			ack = seq_esperado;
+			ack = 3 - seq_esperado;
 		}
 
-		enviar_ack(conexao->segmento.cabecalho, ack);
+		enviar_ack(segmento_ack, ack);
 	}
 	return bytes_lidos_total;
 }

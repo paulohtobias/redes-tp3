@@ -1,6 +1,7 @@
 #ifndef CONEXAO_H
 #define CONEXAO_H
 
+#include <signal.h>
 #include "nucleo.h"
 
 typedef struct mpw_conexao_t {
@@ -47,7 +48,9 @@ int mpw_accept(int sfd);
 
 int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen);
 
-void enviar_ack(mpw_cabecalho_t cabecalho, int ack);
+int mpw_close(int sfd);
+
+void enviar_ack(mpw_segmento_t segmento, int ack);
 
 void __mpw_write(mpw_segmento_t *segmento);
 

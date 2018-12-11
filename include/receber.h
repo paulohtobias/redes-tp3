@@ -3,8 +3,6 @@
 
 #include "conexao.h"
 
-void __init_receber();
-
 /// se buffer_cru não for NULL, precisa ser *obrigatoriamente* alocado dinamicamente.
 ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, size_t *buffer_cru_tamanho);
 

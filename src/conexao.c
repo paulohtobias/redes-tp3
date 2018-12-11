@@ -10,10 +10,13 @@ pthread_t thread_read;
 // Socket interno.
 int __socket_real = -1;
 
+void INThandler(int sig);
+
 void *__processar_mensagens(void *args);
 
 void init_conexoes() {
 	int i;
+	signal(SIGINT, INThandler);
 	iniciar_fila(&gfila_conexoes, sizeof(mpw_conexao_t), true);
 	iniciar_fila(&gfila_mensagens, sizeof(mpw_conexao_t), true);
 	gconexoes = calloc(max_conexoes, sizeof(mpw_conexao_t));
@@ -131,10 +134,20 @@ int mpw_accept(int sfd) {
 			}
 
 			// Se os dados chegaram normalmente.
-			if (retval == 0 && !segmento_corrompido(segmento) && CHECHAR_FLAG_EXCLUSIVO(conexao->segmento, CONEXAO_CONFIRMADA)) {
-				// Marca a conexão como estabelecida.
-				conexao->estado = MPW_CONEXAO_ESTABELECIDA;
-				break;
+			if (retval == 0 && !segmento_corrompido(segmento)) {
+				if (CHECHAR_FLAG_EXCLUSIVO(conexao->segmento, CONEXAO_CONFIRMADA)) {
+					// Marca a conexão como estabelecida.
+					conexao->estado = MPW_CONEXAO_ESTABELECIDA;
+					break;
+				}
+
+				// Verifica se a conexão (remota) foi fechada prematuramente.
+				if (CHECHAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
+					// Marca a conexão (local) como fechada.
+					conexao->estado = MPW_CONEXAO_INATIVA;
+					sfd_cliente = -1;
+					break;
+				}
 			} else {
 
 				// Marca que não há dados.
@@ -241,11 +254,36 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 	return 0;
 }
 
-void enviar_ack(mpw_cabecalho_t cabecalho, int ack) {
-	cabecalho.flags = ack;
+void INThandler(int sig) {
+	signal(sig, SIG_IGN);
+	//TODO: iterar em todas as conexões abertas.
+	int fd;
+	for (fd = 0; fd < max_conexoes; fd++) {
+		mpw_close(fd);
+	}
+	exit(0);
+}
 
-	mpw_segmento_t segmento = (mpw_segmento_t){0};
-	segmento.cabecalho = cabecalho;
+int mpw_close(int sfd) {
+	pthread_mutex_lock(&mutex_conexoes);
+	if (sfd >= max_conexoes || gconexoes[sfd].estado == MPW_CONEXAO_INATIVA) {
+		return -1;
+	}
+	gconexoes[sfd].estado = MPW_CONEXAO_INATIVA;
+	mpw_segmento_t segmento;
+	segmento.cabecalho.socket = gconexoes[sfd].id;
+	segmento.cabecalho.ip_origem = gconexoes[sfd].ip_origem;
+	segmento.cabecalho.porta_origem = gconexoes[sfd].porta_origem;
+	segmento.cabecalho.flags = TERMINAR_CONEXAO;
+	segmento.cabecalho.tamanho_dados = 0;
+
+	__mpw_write(&segmento);
+	pthread_mutex_unlock(&mutex_conexoes);
+	return 0;
+}
+
+void enviar_ack(mpw_segmento_t segmento, int ack) {
+	segmento.cabecalho.flags = ack;
 
 	__mpw_write(&segmento);
 }
