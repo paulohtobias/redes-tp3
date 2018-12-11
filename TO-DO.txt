@@ -1,6 +1,12 @@
+- [ ] capturar sinal ctr-c pra mandar o close pra outra ponta.
+
+- [X] iniciar as threads auxiliares na função init.
+
+- [X] inicializar a struct para ser usada no timedwait.
+
 - [x] read_benchmark(int fd, void *buffer, void **raw_buffer)
 
-- [~] alocar dinamicamente todos os vetores estáticos dentro de uma função init.
+- [X] alocar dinamicamente todos os vetores estáticos dentro de uma função init.
 
 - [x] como corromper pacotes: 
 	- se setar a flag pra corromper x%:

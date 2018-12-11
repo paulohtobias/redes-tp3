@@ -17,9 +17,7 @@ SOURCE := .c
 INCLUDE_PATHS := -I$(IDIR)
 
 #Libraries
-LIBS :=
-#CFLAGS += `pkg-config --cflags $(LIBS)`
-#LOADLIBES := `pkg-config --libs $(LIBS)`
+LOADLIBES := -pthread
 
 #Compilation line
 COMPILE := $(CC) $(CFLAGS) $(INCLUDE_PATHS)

@@ -5,11 +5,12 @@ void __init_enviar(){
 }
 
 int enviar(int sockfd, void *dados, size_t tamanho) {
-	mpw_cabecalho_t ack;
+	//mpw_cabecalho_t ack;
 	mpw_segmento_t pacote = (mpw_segmento_t){0};
 	mpw_conexao_t *conexao = &gconexoes[sockfd];
 	int indx = 0;
 	enum MPW_FLAGS seq_num = SEQ_1;
+	int bytes_escritos = 0;
 
 	while(tamanho > 0){
 		// Inicialização do pacote
@@ -34,12 +35,11 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 		__mpw_write(sockfd, &pacote);
 
 		// Esperando por um ACK
-		struct sockaddr_in addr;
 		
 		// Realiza a tentativa de enviar o dado
 		pthread_mutex_lock(&(conexao->mutex));
 		while (!conexao->tem_dado) {
-			int retval = pthread_cond_timedwait(&conexao->cond, &conexao->mutex, estimated_rtt);
+			int retval = mpw_rtt(&conexao->cond, &conexao->mutex, gestimated_rtt);
 
 			// Se estourar o temporizador.
 			if (retval == ETIMEDOUT) {
@@ -61,6 +61,9 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 
 		seq_num = (SEQ_1 | SEQ_2) - seq_num;
 		tamanho -= tamanho_pacote;
+		bytes_escritos += tamanho_pacote;
 	}
+
+	return bytes_escritos;
 }
 

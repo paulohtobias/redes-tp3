@@ -6,6 +6,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/time.h>
+#include <time.h>
 
 #include <pthread.h>
 
@@ -20,5 +22,10 @@
 typedef char bool;
 
 extern int gquiet;
+
+// Funções
+	// Realiza a verificação do RTT, 
+	// 0 se sucesso, erro caso contrário
+	int mpw_rtt(pthread_cond_t *cond, pthread_mutex_t *mutex, int tempo_ms);
 
 #endif //UTILS_H

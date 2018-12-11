@@ -4,13 +4,24 @@
 #include "nucleo.h"
 
 typedef struct mpw_conexao_t {
-	int id;
+	/// Guarda o estado da conexão.
+	enum {MPW_CONEXAO_INATIVA, MPW_CONEXAO_CONECTANDO, MPW_CONEXAO_ESTABELECIDA} estado;
+	
+	/// Atributos para identificar o remetente.
+	int id; //meu id do lado de lá. Uso pra me identificar ao mandar as mensagens. TODO: apagar
+	in_addr_t ip_origem;
+	in_port_t porta_origem;
+
+	/// Indica que há dados novos para serem lidos.
 	uint8_t tem_dado;
+
+	/// Guarda o offset dos dados durante a escrita e leitura.
 	size_t offset;
+
+	/// Segmento lido.
 	mpw_segmento_t segmento;
 
-	bool ativo;
-
+	/// Sincronização de threads.
 	pthread_mutex_t mutex;
 	pthread_cond_t cond;
 } mpw_conexao_t;
@@ -18,12 +29,14 @@ typedef struct mpw_conexao_t {
 /// Variáveis globais
 size_t max_conexoes;
 mpw_conexao_t *gconexoes;
+fila_t gfila_conexoes;
+fila_t gfila_mensagens;
 
 // Tempo em nanosegundos
-unsigned int estimated_rtt;
+unsigned int gestimated_rtt;
 
 /// Funções
-void init_conexao();
+void init_conexoes(int sfd);
 
 int mpw_accept(int sfd);
 

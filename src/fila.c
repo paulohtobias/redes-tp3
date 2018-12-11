@@ -4,7 +4,7 @@ void iniciar_fila(fila_t *fila, size_t qtd_bytes_elemento, bool bloqueante) {
 	fila->inicio = 0;
 	fila->tamanho = 0;
 	fila->qtd_bytes_elemento = qtd_bytes_elemento;
-	fila->elementos = malloc(fila->qtd_bytes_elemento * fila->qtd_bytes_elemento);
+	fila->elementos = malloc(fila->tamanho_maximo * fila->qtd_bytes_elemento);
 	fila->bloqueante = bloqueante;
 
 	pthread_mutex_init(&fila->protetor, NULL);

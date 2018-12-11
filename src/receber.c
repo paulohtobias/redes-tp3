@@ -12,11 +12,11 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 
 	mpw_conexao_t *conexao = &gconexoes[fd];
 
-	if (!conexao->ativo) {
+	if (conexao->estado != MPW_CONEXAO_ESTABELECIDA) {
 		return -1;
 	}
 
-	size_t tamanho_segmento = sizeof (mpw_segmento_t);
+	//size_t tamanho_segmento = sizeof (mpw_segmento_t);
 	int seq_esperado = 1;
 	int ack = 2;
 	conexao->offset = 0;
