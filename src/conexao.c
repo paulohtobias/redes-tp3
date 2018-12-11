@@ -58,11 +58,21 @@ int mpw_accept(int sfd) {
 	
 	pthread_mutex_unlock(&mutex_conexoes);
 
+	if (!gquiet) {
+		printf("accept: Enviando confirmação\n");
+	}
+
 	// Confirma a conexão.
 	DEFINIR_FLAG(*segmento, ACEITOU_CONEXAO);
 	segmento->cabecalho.socket = sfd_cliente;
+	segmento->cabecalho.ip_origem = pedido_conexao.ip_origem;
+	segmento->cabecalho.porta_origem = pedido_conexao.porta_origem;
 	pthread_mutex_lock(&conexao->mutex);
 	__mpw_write(sfd, segmento);
+
+	if (!gquiet) {
+		printf("accept: esperando confirmação\n");
+	}
 
 	// Espera confirmação do cliente.
 	//TODO: otimizar
