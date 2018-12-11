@@ -37,7 +37,7 @@ fila_t gfila_mensagens;
 unsigned int gestimated_rtt;
 
 /// Funções
-void init_conexoes(int sfd);
+void init_conexoes();
 
 int mpw_socket();
 

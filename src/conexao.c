@@ -12,7 +12,7 @@ int __socket_real = -1;
 
 void *__processar_mensagens(void *args);
 
-void init_conexoes(int sfd) {
+void init_conexoes() {
 	int i;
 	iniciar_fila(&gfila_conexoes, sizeof(mpw_conexao_t), true);
 	iniciar_fila(&gfila_mensagens, sizeof(mpw_conexao_t), true);
@@ -23,9 +23,9 @@ void init_conexoes(int sfd) {
 	}
 
 	// Cria as threads operárias.
-	//pthread_create(&thread_processar_conexoes, NULL, processar_conexoes, &sfd);
-	pthread_create(&thread_processar_mensagens, NULL, __processar_mensagens, &sfd);
-	pthread_create(&thread_read, NULL, __mpw_read, &sfd);
+	//pthread_create(&thread_processar_conexoes, NULL, processar_conexoes, NULL);
+	pthread_create(&thread_processar_mensagens, NULL, __processar_mensagens, NULL);
+	pthread_create(&thread_read, NULL, __mpw_read, NULL);
 }
 
 int mpw_socket() {
@@ -35,6 +35,7 @@ int mpw_socket() {
 		if (__socket_real == -1) {
 			handle_error(errno, "mpw_socket-socket");
 		}
+		init_conexoes();
 	}
 
 	// Procura um id vazio.
@@ -341,14 +342,13 @@ bool processar_conexoes(){
 }
 
 void *__mpw_read(void* args) {
-	int sfd = *(int *) args;
 	mpw_conexao_t conexao;
 	struct sockaddr_in addr;
 	socklen_t addr_len = sizeof addr;
 	ssize_t bytes_recebidos;
 	
 	if (!gquiet) {
-		printf("Thread leitura %d\n", sfd);
+		printf("Thread leitura %d\n", __socket_real);
 	}
 
 	int i, id;
