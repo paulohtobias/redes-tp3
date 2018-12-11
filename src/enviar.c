@@ -9,7 +9,8 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 	mpw_segmento_t pacote = (mpw_segmento_t){0};
 	mpw_conexao_t *conexao = &gconexoes[sockfd];
 	int indx = 0;
-	enum MPW_FLAGS seq_num = SEQ_1;
+	int seq_num = SEQ_1;
+	int ack_esp = ACK_1;
 	int bytes_escritos = 0;
 
 	pacote.cabecalho.socket = conexao->id;
@@ -38,12 +39,11 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 
 		// Realiza o envio do pacote
 		if(!gquiet){printf("Enviando o pacote\n");}
-		__mpw_write(&pacote);
-
-		// Esperando por um ACK
-		
-		// Realiza a tentativa de enviar o dado
 		pthread_mutex_lock(&(conexao->mutex));
+		
+		conexao->tem_dado = 0;
+		__mpw_write(&pacote);
+		// Realiza a tentativa de enviar o dado
 		while (!conexao->tem_dado) {
 			if(!gquiet){printf("Inicio loop\n");}
 			int retval = mpw_rtt(&conexao->cond, &conexao->mutex, gestimated_rtt);
@@ -57,8 +57,11 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 				// Se os dados chegaram normalmente.
 				// SEQ_1 >> 2 == ACK_1; SEQ_2 >> 2 == ACK_2
 				// && segmento_valido(&conexao->segmento, seq_num >> 2
-				if (retval == 0) {
-					if(!gquiet){printf("Segmento valido\n");}
+				if(!gquiet){printf("Segmento valido\n");}
+				if (retval == 0 && 
+					!segmento_corrompido(&conexao->segmento) && 
+					ack_esp == IS_ACK(conexao->segmento)
+				){
 					break;
 				} else {
 					conexao->tem_dado = 0;
@@ -70,6 +73,7 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 		pthread_mutex_unlock(&conexao->mutex);
 
 		seq_num = (SEQ_1 | SEQ_2) - seq_num;
+		ack_esp = seq_num/SEQ_1;
 		tamanho -= tamanho_pacote;
 		bytes_escritos += tamanho_pacote;
 	}

@@ -60,7 +60,7 @@ typedef struct mpw_segmento_t {
 } mpw_segmento_t;
 
 /// Macros para demultiplexar as flags.
-#define IS_ACK(flags) (((segmento).cabecalho.flags & ACK_1) ? 1 : ((segmento).cabecalho.flags & ACK_2) ? 2 : 0)
+#define IS_ACK(segmento) (((segmento).cabecalho.flags & ACK_1) ? 1 : ((segmento).cabecalho.flags & ACK_2) ? 2 : 0)
 #define GET_SEQ(segmento) (((segmento).cabecalho.flags & SEQ_1) ? 1 : ((segmento).cabecalho.flags & SEQ_2) ? 2 : -1)
 #define INICIAR_CONEXAO (C_INIT)
 #define ACEITOU_CONEXAO (C_INIT | ACK_1)
