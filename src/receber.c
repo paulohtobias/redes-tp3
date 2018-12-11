@@ -37,7 +37,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 		if (CHECHAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
 			conexao->segmento.cabecalho.flags += ACK_1;
 
-			__mpw_write(fd, &conexao->segmento);
+			__mpw_write(&conexao->segmento);
 
 			//to-do: retirar a conexão do vetor global de conexões.
 			//conexao->ativo = false;
@@ -88,7 +88,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 			ack = seq_esperado;
 		}
 
-		enviar_ack(fd, conexao->segmento.cabecalho, ack);
+		enviar_ack(conexao->segmento.cabecalho, ack);
 	}
 	return bytes_lidos_total;
 }

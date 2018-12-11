@@ -38,6 +38,10 @@ int maina(int argc, char *argv[]) {
 
 	printf ("cliente sfd: %d\n", csfd);
 
+	char buffer[2048];
+	int bl = ler(csfd, buffer, sizeof buffer);
+	printf("%d: '%s'\n", bl, buffer);
+
 	return 0;
 }
 
@@ -83,7 +87,7 @@ int mainc(int argc, char *argv[]) {
 int main2(int argc, char *argv[]);
 
 int main(int argc, char *argv[]) {
-	return mainc(argc, argv);
+	//return mainc(argc, argv);
 	//return main2(argc, argv);
 	if (argc > 1) {
 		return mainc(argc, argv);

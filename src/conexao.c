@@ -7,6 +7,9 @@ pthread_t thread_processar_conexoes;
 pthread_t thread_processar_mensagens;
 pthread_t thread_read;
 
+// Socket interno.
+int __socket_real = -1;
+
 void *__processar_mensagens(void *args);
 
 void init_conexoes(int sfd) {
@@ -23,6 +26,39 @@ void init_conexoes(int sfd) {
 	//pthread_create(&thread_processar_conexoes, NULL, processar_conexoes, &sfd);
 	pthread_create(&thread_processar_mensagens, NULL, __processar_mensagens, &sfd);
 	pthread_create(&thread_read, NULL, __mpw_read, &sfd);
+}
+
+int mpw_socket() {
+	// Cria o socket real.
+	if (__socket_real == -1) {
+		__socket_real = socket(AF_INET, SOCK_DGRAM, 0);
+		if (__socket_real == -1) {
+			handle_error(errno, "mpw_socket-socket");
+		}
+	}
+
+	// Procura um id vazio.
+	int sfd;
+	for (sfd = 0; sfd < max_conexoes; sfd++) {
+		pthread_mutex_lock(&mutex_conexoes);
+		if (gconexoes[sfd].estado == MPW_CONEXAO_INATIVA) {
+			pthread_mutex_unlock(&mutex_conexoes);
+			return sfd;
+		}
+		pthread_mutex_unlock(&mutex_conexoes);
+	}
+
+	return -1;
+}
+
+int mpw_bind(int sfd, struct sockaddr *server_addr, size_t len) {
+	int enable = 1;
+	int retval = setsockopt(__socket_real, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));
+	if (retval < 0) {
+		handle_error(errno, "criar_socket_servidor-setsockopt(SO_REUSEADDR)");
+	}
+
+	return bind(__socket_real, (struct sockaddr *) server_addr, len);
 }
 
 int mpw_accept(int sfd) {
@@ -68,7 +104,7 @@ int mpw_accept(int sfd) {
 	segmento->cabecalho.ip_origem = pedido_conexao.ip_origem;
 	segmento->cabecalho.porta_origem = pedido_conexao.porta_origem;
 	pthread_mutex_lock(&conexao->mutex);
-	__mpw_write(sfd, segmento);
+	__mpw_write(segmento);
 
 	if (!gquiet) {
 		printf("accept: esperando confirmação\n");
@@ -86,7 +122,7 @@ int mpw_accept(int sfd) {
 			conexao->tem_dado = 0;
 
 			// Reenvia o ack.
-			__mpw_write(sfd, segmento);
+			__mpw_write(segmento);
 		} else {
 			// Verifica se houve um despertar falso da thread.
 			if (!conexao->tem_dado) {
@@ -102,7 +138,7 @@ int mpw_accept(int sfd) {
 				conexao->tem_dado = 0;
 
 				// Reenvia o ack.
-				__mpw_write(sfd, segmento);
+				__mpw_write(segmento);
 			}
 		}
 	}
@@ -114,29 +150,19 @@ int mpw_accept(int sfd) {
 
 int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 	int retval;
-	mpw_conexao_t mensagem_conexao;
 	mpw_segmento_t segmento;
 
-	// Procura por uma posição vazia na lista de conexões.
-	// TODO: otimizar este for
-	pthread_mutex_lock(&mutex_conexoes);
-	int id;
-	for (id = 0; id < max_conexoes && gconexoes[id].estado != MPW_CONEXAO_INATIVA; id++);
-
-	if (id == max_conexoes) {
-		return -1;
-	}
-
 	// Adiciona a conexão no vetor de conexões.
-	mpw_conexao_t *conexao = &gconexoes[id];
+	pthread_mutex_lock(&mutex_conexoes);
+	mpw_conexao_t *conexao = &gconexoes[sfd];
 	conexao->estado = MPW_CONEXAO_CONECTANDO;
 	conexao->tem_dado = 0;
 	conexao->offset = 0;
-
 	pthread_mutex_unlock(&mutex_conexoes);
 
+
 	// Montando o cabeçalho para solicitar a conexão.
-	segmento.cabecalho.socket = id;
+	segmento.cabecalho.socket = sfd;
 	segmento.cabecalho.ip_origem = ((struct sockaddr_in *) addr)->sin_addr.s_addr;
 	segmento.cabecalho.porta_origem = ((struct sockaddr_in *) addr)->sin_port;
 	segmento.cabecalho.flags = INICIAR_CONEXAO;
@@ -144,7 +170,7 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 
 	// Solicita a abertura de conexão.
 	pthread_mutex_lock(&conexao->mutex);
-	__mpw_write(sfd, &segmento);
+	__mpw_write(&segmento);
 
 
 	// Espera mensagem de conexão aceita.
@@ -164,7 +190,7 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 			conexao->tem_dado = 0;
 
 			// Solicita novamente a abertura de conexão.
-			__mpw_write(sfd, &segmento);
+			__mpw_write(&segmento);
 		} else {
 			// Verifica se houve um despertar falso da thread.
 			if (!conexao->tem_dado) {
@@ -195,7 +221,7 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 				conexao->tem_dado = 0;
 
 				// Solicita novamente a abertura de conexão.
-				__mpw_write(sfd, &segmento);
+				__mpw_write(&segmento);
 			}
 		}
 	}
@@ -204,7 +230,7 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 
 	// Confirma a conexão
 	//segmento.cabecalho.flags = (C_INIT & ACK_2);
-	//__mpw_write(sfd, &segmento);
+	//__mpw_write(&segmento);
 
 	if(!gquiet){
 		printf("Finalizacao\n");
@@ -212,16 +238,16 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 	return 0;
 }
 
-void enviar_ack(int sfd, mpw_cabecalho_t cabecalho, int ack) {
+void enviar_ack(mpw_cabecalho_t cabecalho, int ack) {
 	cabecalho.flags = ack;
 
 	mpw_segmento_t segmento = (mpw_segmento_t){0};
 	segmento.cabecalho = cabecalho;
 
-	__mpw_write(sfd, &segmento);
+	__mpw_write(&segmento);
 }
 
-void __mpw_write(int sfd, mpw_segmento_t *segmento) {
+void __mpw_write(mpw_segmento_t *segmento) {
 	// Calcular checksum
 	segmento->cabecalho.checksum = calcular_checksum(segmento);
 
@@ -250,15 +276,14 @@ void __mpw_write(int sfd, mpw_segmento_t *segmento) {
 	mpw_segmento_t copia = *segmento;
 	segmento_corrigir_endianness(&copia, false);
 
-	int bytes_escritos = sendto(sfd, &copia, sizeof copia, 0, (struct sockaddr *) &addr, sizeof addr);
+	int bytes_escritos = sendto(__socket_real, &copia, sizeof copia, 0, (struct sockaddr *) &addr, sizeof addr);
 
 	if (!gquiet) {
-		printf("%s: bytes_escritos: %ld\n", __FUNCTION__, bytes_escritos);
+		printf("%s: bytes_escritos: %d\n", __FUNCTION__, bytes_escritos);
 	}
 }
 
 void *__processar_mensagens(void *args) {
-	int sfd = *(int *) args;
 	mpw_conexao_t mensagem_conexao;
 	unsigned int indice;
 
@@ -280,7 +305,7 @@ void *__processar_mensagens(void *args) {
 					DEFINIR_FLAG(mensagem_conexao.segmento, CONEXAO_CONFIRMADA);
 					mensagem_conexao.segmento.cabecalho.ip_origem = mensagem_conexao.ip_origem;
 					mensagem_conexao.segmento.cabecalho.porta_origem = mensagem_conexao.porta_origem;
-					__mpw_write(sfd, &mensagem_conexao.segmento);
+					__mpw_write(&mensagem_conexao.segmento);
 				}
 				pthread_mutex_unlock(&conexao->mutex);
 			}
@@ -327,9 +352,8 @@ void *__mpw_read(void* args) {
 	}
 
 	int i, id;
-	unsigned int indice;
 	while (1) {
-		bytes_recebidos = recvfrom(sfd, &conexao.segmento, sizeof conexao.segmento, 0, (struct sockaddr *) &addr, &addr_len);
+		bytes_recebidos = recvfrom(__socket_real, &conexao.segmento, sizeof conexao.segmento, 0, (struct sockaddr *) &addr, &addr_len);
 
 		if (!gquiet) {
 			printf("%s: bytes recebidos: %ld\n", __FUNCTION__, bytes_recebidos);

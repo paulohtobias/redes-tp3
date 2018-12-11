@@ -32,7 +32,7 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 		indx += tamanho_pacote;
 
 		// Realiza o envio do pacote
-		__mpw_write(sockfd, &pacote);
+		__mpw_write(&pacote);
 
 		// Esperando por um ACK
 		
@@ -44,7 +44,7 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 			// Se estourar o temporizador.
 			if (retval == ETIMEDOUT) {
 				conexao->tem_dado = 0;
-				__mpw_write(sockfd, &pacote);
+				__mpw_write(&pacote);
 			} else {
 				// Se os dados chegaram normalmente.
 				// SEQ_1 >> 2 == ACK_1; SEQ_2 >> 2 == ACK_2
@@ -52,7 +52,7 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 					break;
 				} else {
 					conexao->tem_dado = 0;
-					__mpw_write(sockfd, &pacote);
+					__mpw_write(&pacote);
 				}
 			}
 		}

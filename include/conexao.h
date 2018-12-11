@@ -27,6 +27,7 @@ typedef struct mpw_conexao_t {
 } mpw_conexao_t;
 
 /// Variáveis globais
+extern int __socket_real;
 size_t max_conexoes;
 mpw_conexao_t *gconexoes;
 fila_t gfila_conexoes;
@@ -38,13 +39,17 @@ unsigned int gestimated_rtt;
 /// Funções
 void init_conexoes(int sfd);
 
+int mpw_socket();
+
+int mpw_bind(int sfd, struct sockaddr *server_addr, size_t len);
+
 int mpw_accept(int sfd);
 
 int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen);
 
-void enviar_ack(int sfd, mpw_cabecalho_t cabecalho, int ack);
+void enviar_ack(mpw_cabecalho_t cabecalho, int ack);
 
-void __mpw_write(int sfd, mpw_segmento_t *segmento);
+void __mpw_write(mpw_segmento_t *segmento);
 
 void *__mpw_read(void *args);
 
