@@ -26,7 +26,8 @@ enum MPW_FLAGS {
 	SEQ_2 =  0x8,
 	C_INIT = 0x10,
 	C_TERM = 0x20,
-	D_BIT =  0x40
+	D_BIT =  0x40,
+	FULL_BUFF = 0x80
 };
 
 /**
@@ -62,15 +63,16 @@ typedef struct mpw_segmento_t {
 /// Macros para demultiplexar as flags.
 #define IS_ACK(segmento) (((segmento).cabecalho.flags & ACK_1) ? 1 : ((segmento).cabecalho.flags & ACK_2) ? 2 : 0)
 #define GET_SEQ(segmento) (((segmento).cabecalho.flags & SEQ_1) ? 1 : ((segmento).cabecalho.flags & SEQ_2) ? 2 : -1)
+#define BUFFER_CHEIO (FULL_BUFF)
 #define INICIAR_CONEXAO (C_INIT)
 #define ACEITOU_CONEXAO (C_INIT | ACK_1)
 #define CONEXAO_CONFIRMADA (C_INIT | ACK_2)
 #define TERMINAR_CONEXAO (C_TERM)
-#define CONFIRMOU_TERMINO (C_TERM | ACK1)
+#define CONFIRMOU_TERMINO (C_TERM | ACK_1)
 #define DIRTY_BIT (D_BIT)
 
-#define CHECHAR_FLAG(segmento, flag) ((segmento).cabecalho.flags & flag)
-#define CHECHAR_FLAG_EXCLUSIVO(segmento, flag) ((segmento).cabecalho.flags == flag)
+#define CHECAR_FLAG(segmento, flag) ((segmento).cabecalho.flags & flag)
+#define CHECAR_FLAG_EXCLUSIVO(segmento, flag) ((segmento).cabecalho.flags == flag)
 #define DEFINIR_FLAG(segmento, flag) (segmento).cabecalho.flags = flag
 
 // Funções

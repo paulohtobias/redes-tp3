@@ -37,14 +37,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 		pthread_mutex_unlock(&conexao->mutex);
 
 		// Verifica se a conexão foi fechada no meio da transmissão.
-		if (CHECHAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
-			conexao->segmento.cabecalho.flags += ACK_1;
-
-			__mpw_write(&conexao->segmento);
-
-			//to-do: retirar a conexão do vetor global de conexões.
-			//conexao->ativo = false;
-
+		if (CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
 			return 0;
 		}
 
@@ -52,7 +45,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 		if (buffer_cru != NULL) {
 			// Verifica se os novos bytes não extrapolam o buffer cru.
 			if (*buffer_cru != NULL && buffer_cru_offset + conexao->segmento.cabecalho.tamanho_dados >= *buffer_cru_tamanho) {
-				*buffer_cru_tamanho  = buffer_cru_offset + conexao->segmento.cabecalho.tamanho_dados + 1;
+				*buffer_cru_tamanho = buffer_cru_offset + conexao->segmento.cabecalho.tamanho_dados + 1;
 				*buffer_cru = realloc(*buffer_cru, *buffer_cru_tamanho);
 
 				// Verifica se o realloc falhou.
@@ -88,6 +81,8 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 					terminou = 1;
 				}
 			} else {
+				// Não cabem mais dados no buffer. Avisa para o remente que a recepção será encerrada.
+				ack = BUFFER_CHEIO;
 				terminou = 1;
 			}
 		} else {

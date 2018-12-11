@@ -46,6 +46,9 @@ int mpw_socket() {
 	for (sfd = 0; sfd < max_conexoes; sfd++) {
 		pthread_mutex_lock(&mutex_conexoes);
 		if (gconexoes[sfd].estado == MPW_CONEXAO_INATIVA) {
+			// Reseta a conexão.
+			memset(&gconexoes[sfd], 0, sizeof(mpw_conexao_t));
+
 			pthread_mutex_unlock(&mutex_conexoes);
 			return sfd;
 		}
@@ -75,7 +78,7 @@ int mpw_accept(int sfd) {
 		remover_fila(&gfila_conexoes, &pedido_conexao);
 	
 	// Repete enquanto houver problema com o segmento.
-	} while (segmento_corrompido(segmento) || !CHECHAR_FLAG_EXCLUSIVO(*segmento, INICIAR_CONEXAO));
+	} while (segmento_corrompido(segmento) || !CHECAR_FLAG_EXCLUSIVO(*segmento, INICIAR_CONEXAO));
 
 	// Procura por um socket fd válido.
 	// TODO: otimizar este for
@@ -135,14 +138,14 @@ int mpw_accept(int sfd) {
 
 			// Se os dados chegaram normalmente.
 			if (retval == 0 && !segmento_corrompido(segmento)) {
-				if (CHECHAR_FLAG_EXCLUSIVO(conexao->segmento, CONEXAO_CONFIRMADA)) {
+				if (CHECAR_FLAG_EXCLUSIVO(conexao->segmento, CONEXAO_CONFIRMADA)) {
 					// Marca a conexão como estabelecida.
 					conexao->estado = MPW_CONEXAO_ESTABELECIDA;
 					break;
 				}
 
 				// Verifica se a conexão (remota) foi fechada prematuramente.
-				if (CHECHAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
+				if (CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
 					// Marca a conexão (local) como fechada.
 					conexao->estado = MPW_CONEXAO_INATIVA;
 					sfd_cliente = -1;
@@ -217,7 +220,7 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 			if(!gquiet){
 				printf("Se os dados chegaram normalmente\n");
 			}
-			if (retval == 0 && CHECHAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
+			if (retval == 0 && CHECAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
 				// Marca a conexão como ativa e define os atributos de multiplexação.
 				pthread_mutex_lock(&mutex_conexoes);
 				conexao->estado = MPW_CONEXAO_ESTABELECIDA;
@@ -265,20 +268,58 @@ void INThandler(int sig) {
 }
 
 int mpw_close(int sfd) {
-	pthread_mutex_lock(&mutex_conexoes);
 	if (sfd >= max_conexoes || gconexoes[sfd].estado == MPW_CONEXAO_INATIVA) {
 		return -1;
 	}
-	gconexoes[sfd].estado = MPW_CONEXAO_INATIVA;
+	pthread_mutex_lock(&mutex_conexoes);
+	mpw_conexao_t *conexao = &gconexoes[sfd];
+	conexao->estado = MPW_CONEXAO_INATIVA;
 	mpw_segmento_t segmento;
-	segmento.cabecalho.socket = gconexoes[sfd].id;
-	segmento.cabecalho.ip_origem = gconexoes[sfd].ip_origem;
-	segmento.cabecalho.porta_origem = gconexoes[sfd].porta_origem;
+
+	segmento.cabecalho.socket = conexao->id;
+	segmento.cabecalho.ip_origem = conexao->ip_origem;
+	segmento.cabecalho.porta_origem = conexao->porta_origem;
 	segmento.cabecalho.flags = TERMINAR_CONEXAO;
 	segmento.cabecalho.tamanho_dados = 0;
 
 	__mpw_write(&segmento);
 	pthread_mutex_unlock(&mutex_conexoes);
+
+	// Espera ACK de confirmação do fechamento da conexão.
+	pthread_mutex_lock(&conexao->mutex);
+	int retval;
+	conexao->tem_dado = 0;
+	while (!conexao->tem_dado) {
+		retval = mpw_rtt(&conexao->cond, &conexao->mutex, gestimated_rtt);
+
+		// Se estourou o temporizador.
+		if (retval == ETIMEDOUT) {
+			// Marca que não há dados.
+			conexao->tem_dado = 0;
+
+			// Reenvia o segmento.
+			__mpw_write(&segmento);
+		} else {
+			// Verifica se houve um despertar falso da thread.
+			if (!conexao->tem_dado) {
+				continue;
+			}
+
+			// Se os dados chegaram normalmente.
+			if (retval == 0 && !segmento_corrompido(&segmento) && CHECAR_FLAG(segmento, CONFIRMOU_TERMINO)) {
+				break;
+			} else {
+				// Marca que não há dados.
+				conexao->tem_dado = 0;
+
+				// Reenvia o segmento.
+				__mpw_write(&segmento);
+			}
+		}
+	}
+
+	pthread_mutex_unlock(&conexao->mutex);
+
 	return 0;
 }
 
@@ -341,11 +382,21 @@ void *__processar_mensagens(void *args) {
 				
 				// Verifica confirmação do accept.
 				pthread_mutex_lock(&conexao->mutex);
-				if (CHECHAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
+				if (CHECAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
 					// Enviar a confirmação da conexão.
 					DEFINIR_FLAG(mensagem_conexao.segmento, CONEXAO_CONFIRMADA);
 					mensagem_conexao.segmento.cabecalho.ip_origem = mensagem_conexao.ip_origem;
 					mensagem_conexao.segmento.cabecalho.porta_origem = mensagem_conexao.porta_origem;
+					__mpw_write(&mensagem_conexao.segmento);
+				} else if (CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
+					// Enviar a confirmação do fechamento da conexão.
+					DEFINIR_FLAG(mensagem_conexao.segmento, CONFIRMOU_TERMINO);
+					mensagem_conexao.segmento.cabecalho.ip_origem = mensagem_conexao.ip_origem;
+					mensagem_conexao.segmento.cabecalho.porta_origem = mensagem_conexao.porta_origem;
+					
+					// Marca a conexão como inativa.
+					conexao->estado = MPW_CONEXAO_INATIVA;
+
 					__mpw_write(&mensagem_conexao.segmento);
 				}
 				pthread_mutex_unlock(&conexao->mutex);
@@ -425,7 +476,7 @@ void *__mpw_read(void* args) {
 			}
 
 			// Verifica o tipo da mensagem e insere na fila correta.
-			if (CHECHAR_FLAG_EXCLUSIVO(conexao.segmento, INICIAR_CONEXAO)) {
+			if (CHECAR_FLAG_EXCLUSIVO(conexao.segmento, INICIAR_CONEXAO)) {
 				// Se a conexão já foi iniciada (e ainda não foi estabelecida), não a coloque na fila de conexões.
 				//processar_conexoes();
 
