@@ -12,19 +12,24 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 	enum MPW_FLAGS seq_num = SEQ_1;
 	int bytes_escritos = 0;
 
+	pacote.cabecalho.socket = conexao->id;
+	pacote.cabecalho.ip_origem = conexao->ip_origem;
+	pacote.cabecalho.porta_origem = conexao->porta_origem;
+	
+	if(!gquiet){printf("Antes do while\n");}
 	while(tamanho > 0){
 		// Inicialização do pacote
 		int tamanho_pacote;
 
-		if(tamanho - MPW_MAX_SS >= 0){
-			tamanho_pacote = MPW_MAX_SS;
+		if(tamanho >= MPW_MAX_DADOS){
+			tamanho_pacote = MPW_MAX_DADOS;
 		}else{
 			tamanho_pacote = tamanho;
 			seq_num = 0;
 		}
 
+		if(!gquiet){printf("Definindo o pacote\n");}
 		pacote.cabecalho.tamanho_dados = tamanho_pacote;
-		pacote.cabecalho.socket = sockfd;
 		pacote.cabecalho.flags = seq_num;
 
 		// Adiciona os dados ao pacote
@@ -32,6 +37,7 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 		indx += tamanho_pacote;
 
 		// Realiza o envio do pacote
+		if(!gquiet){printf("Enviando o pacote\n");}
 		__mpw_write(&pacote);
 
 		// Esperando por um ACK
@@ -39,16 +45,20 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 		// Realiza a tentativa de enviar o dado
 		pthread_mutex_lock(&(conexao->mutex));
 		while (!conexao->tem_dado) {
+			if(!gquiet){printf("Inicio loop\n");}
 			int retval = mpw_rtt(&conexao->cond, &conexao->mutex, gestimated_rtt);
 
 			// Se estourar o temporizador.
 			if (retval == ETIMEDOUT) {
+				if(!gquiet){printf("Olha o timeout\n");}
 				conexao->tem_dado = 0;
 				__mpw_write(&pacote);
 			} else {
 				// Se os dados chegaram normalmente.
 				// SEQ_1 >> 2 == ACK_1; SEQ_2 >> 2 == ACK_2
-				if (retval == 0 && segmento_valido(&conexao->segmento, seq_num >> 2)) {
+				// && segmento_valido(&conexao->segmento, seq_num >> 2
+				if (retval == 0) {
+					if(!gquiet){printf("Segmento valido\n");}
 					break;
 				} else {
 					conexao->tem_dado = 0;
@@ -64,6 +74,7 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 		bytes_escritos += tamanho_pacote;
 	}
 
+	if(!gquiet){printf("Finalizou o envio\n");}
 	return bytes_escritos;
 }
 
