@@ -5,7 +5,7 @@
 int maina(int argc, char *argv[]) {
 	srand(1);
 	opcao_t opcoes[] = {
-		OPCAO_INIT('R', tipo_int, &gestimated_rtt, "RTT=2000", "Estimated RTT em milissegundos"),
+		OPCAO_INIT('R', tipo_int, &gestimated_rtt, "RTT=120000", "Estimated RTT em milissegundos"),
 		OPCAO_INIT('C', tipo_double, &probabilidade_corromper, "PROB=0", "Probabilidade de corromper pacotes"),
 		OPCAO_INIT('D', tipo_double, &probabilidade_descartar, "PROB=0", "Probabilidade de descartar pacotes"),
 		OPCAO_INIT('A', tipo_double, &probabilidade_atrasar, "PROB=0", "Probabilidade de atrasar pacotes"),
@@ -35,6 +35,8 @@ int maina(int argc, char *argv[]) {
 
 	//
 	int csfd = mpw_accept(sfd);
+
+	printf ("cliente sfd: %d\n", csfd);
 
 	return 0;
 }
