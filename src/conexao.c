@@ -132,6 +132,8 @@ int mpw_accept(int sfd) {
 
 			// Se os dados chegaram normalmente.
 			if (retval == 0 && !segmento_corrompido(segmento) && CHECHAR_FLAG_EXCLUSIVO(conexao->segmento, CONEXAO_CONFIRMADA)) {
+				// Marca a conexão como estabelecida.
+				conexao->estado = MPW_CONEXAO_ESTABELECIDA;
 				break;
 			} else {
 

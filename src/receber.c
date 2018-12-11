@@ -65,7 +65,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 			}
 		}
 
-		if (segmento_valido(&conexao->segmento, seq_esperado)) {
+		if (!segmento_corrompido(&conexao->segmento) && GET_SEQ(conexao->segmento) == seq_esperado) {
 			// Verifica se os novos bytes não extrapolam o buffer.
 			if (bytes_lidos_total + conexao->segmento.cabecalho.tamanho_dados < buffer_tamanho) {
 				// Copia os novos dados para o buffer.
@@ -78,7 +78,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 				ack = 3 - seq_esperado;
 
 				// Verifica se todos os bytes foram enviados.
-				if (GET_SEQ(conexao->segmento.cabecalho.flags) == -1) {
+				if (GET_SEQ(conexao->segmento) == -1) {
 					terminou = 1;
 				}
 			} else {

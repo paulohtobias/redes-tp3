@@ -60,8 +60,8 @@ typedef struct mpw_segmento_t {
 } mpw_segmento_t;
 
 /// Macros para demultiplexar as flags.
-#define IS_ACK(flags) ((flags & ACK_1) ? 1 : (flags & ACK_2) ? 2 : 0)
-#define GET_SEQ(flags) ((flags & SEQ_1) ? 1 : (flags & SEQ_2) ? 2 : -1)
+#define IS_ACK(flags) (((segmento).cabecalho.flags & ACK_1) ? 1 : ((segmento).cabecalho.flags & ACK_2) ? 2 : 0)
+#define GET_SEQ(segmento) (((segmento).cabecalho.flags & SEQ_1) ? 1 : ((segmento).cabecalho.flags & SEQ_2) ? 2 : -1)
 #define INICIAR_CONEXAO (C_INIT)
 #define ACEITOU_CONEXAO (C_INIT | ACK_1)
 #define CONEXAO_CONFIRMADA (C_INIT | ACK_2)
@@ -79,7 +79,5 @@ uint16_t calcular_checksum(const mpw_segmento_t *segmento);
 void segmento_corrigir_endianness(mpw_segmento_t *segmento, bool leitura);
 
 int segmento_corrompido(const mpw_segmento_t *segmento);
-
-int segmento_valido(const mpw_segmento_t *segmento, int ack_esperado);
 
 #endif //NUCLEO_H
