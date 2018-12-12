@@ -94,11 +94,8 @@ int mpw_accept(int sfd) {
 	} while (segmento_corrompido(segmento) || !CHECAR_FLAG_EXCLUSIVO(*segmento, INICIAR_CONEXAO));
 
 	// Procura por um socket fd válido.
-	// TODO: otimizar este for
-	pthread_mutex_lock(&mutex_conexoes);
-	int sfd_cliente;
-	for (sfd_cliente = 0; sfd_cliente < max_conexoes && gconexoes[sfd_cliente].estado != MPW_CONEXAO_INATIVA; sfd_cliente++);
-
+	int sfd_cliente = mpw_socket();
+	
 	if (sfd_cliente == max_conexoes) {
 		return -1;
 	}
@@ -131,7 +128,6 @@ int mpw_accept(int sfd) {
 	}
 
 	// Espera confirmação do cliente.
-	//TODO: otimizar
 	while (!conexao->tem_dado) {
 		retval = mpw_rtt(&conexao->cond, &conexao->mutex, gestimated_rtt);
 

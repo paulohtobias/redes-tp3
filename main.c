@@ -67,12 +67,10 @@ int main(int argc, char *argv[]) {
 
 		modo_enviar = true;
 	} else {
-		tamanho_mensagem++;
-
 		// Se o usuário passou uma string, então ele quer enviar arquivos.
 		if (strlen(mensagem) > 0) {
-			tamanho_mensagem = MIN(tamanho_mensagem, strlen(mensagem) + 1);
-			((char *) mensagem)[tamanho_mensagem - 1] = '\0';
+			tamanho_mensagem = MIN(tamanho_mensagem, strlen(mensagem));
+			((char *) mensagem)[tamanho_mensagem] = '\0';
 			modo_enviar = true;
 		}
 	}
@@ -83,6 +81,15 @@ int main(int argc, char *argv[]) {
 		if (retval == -1) {
 			handle_error(errno, "criar_socket_servidor-bind");
 		}
+		
+		// Escreve os dois buffers em disco.
+		FILE *out = fopen("asdasdasd", "w");
+		if (out == NULL) {
+			handle_error(errno, "fopen(mensagem)");
+		}
+		fwrite(mensagem, 1, tamanho_mensagem, out);
+		fclose(out);
+
 
 		// Envia a mensagem.
 		retval = enviar(sfd, mensagem, tamanho_mensagem);
