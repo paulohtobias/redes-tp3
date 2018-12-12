@@ -37,7 +37,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 		pthread_mutex_unlock(&conexao->mutex);
 
 		// Verifica se a conexão foi fechada no meio da transmissão.
-		if (CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
+		if (!segmento_corrompido(&conexao->segmento) && CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
 			return 0;
 		}
 

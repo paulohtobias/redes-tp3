@@ -220,18 +220,29 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 			if(!gquiet){
 				printf("Se os dados chegaram normalmente\n");
 			}
-			if (retval == 0 && CHECAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
-				// Marca a conexão como ativa e define os atributos de multiplexação.
-				pthread_mutex_lock(&mutex_conexoes);
-				conexao->estado = MPW_CONEXAO_ESTABELECIDA;
-				pthread_mutex_unlock(&mutex_conexoes);
-				conexao->id = conexao->segmento.cabecalho.socket;
-				/*conexao->ip_origem = conexao->segmento.cabecalho.ip_origem;
-				conexao->porta_origem = conexao->segmento.cabecalho.porta_origem;*/
-				if(!gquiet){
-					printf("Marca a conexão como ativa e define os atributos de multiplexação\n");
+			if (retval == 0 && !segmento_corrompido(&conexao->segmento)) {
+				if (CHECAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
+					// Marca a conexão como ativa e define os atributos de multiplexação.
+					pthread_mutex_lock(&mutex_conexoes);
+					conexao->estado = MPW_CONEXAO_ESTABELECIDA;
+					pthread_mutex_unlock(&mutex_conexoes);
+					conexao->id = conexao->segmento.cabecalho.socket;
+					/*conexao->ip_origem = conexao->segmento.cabecalho.ip_origem;
+					conexao->porta_origem = conexao->segmento.cabecalho.porta_origem;*/
+					if(!gquiet){
+						printf("Marca a conexão como ativa e define os atributos de multiplexação\n");
+					}
+					break;
 				}
-				break;
+
+				// Verifica se a conexão (remota) foi fechada prematuramente.
+				if (CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
+					// Marca a conexão (local) como fechada.
+					conexao->estado = MPW_CONEXAO_INATIVA;
+					
+					pthread_mutex_unlock(&conexao->mutex);
+					return -1;
+				}
 			} else {
 				if(!gquiet){
 					printf("Solicita novamente a abertura de conexão\n");

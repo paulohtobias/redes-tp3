@@ -61,8 +61,6 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 					!segmento_corrompido(&conexao->segmento) && 
 					ack_esp == IS_ACK(conexao->segmento)
 				){
-					printf("Agora !!!!!!!1\n");
-					sleep(20);
 					break;
 				} 
 				// Se chegou qualquer outro pacote não ACK esperado
