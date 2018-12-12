@@ -128,39 +128,63 @@ int mpw_accept(int sfd) {
 
 		// Se estourar o temporizador.
 		if (retval == ETIMEDOUT) {
+			if (!gquiet) {
+				printf("Estourou o temporizador.\n");
+			}
 
 			// Marca que não há dados.
+			if (!gquiet) {
+				printf("Marca que não há dados.\n");
+			}
 			conexao->tem_dado = 0;
 
 			// Reenvia o ack.
+			if (!gquiet) {
+				printf("Reenvia o ack.\n");
+			}
 			__mpw_write(segmento);
 		} else {
 			// Verifica se houve um despertar falso da thread.
+			if (!gquiet) {
+				printf("Verifica se houve um despertar falso da thread.\n");
+			}
 			if (!conexao->tem_dado) {
 				continue;
 			}
+			conexao->tem_dado = 0;
 
 			// Se os dados chegaram normalmente.
 			if (retval == 0 && !segmento_corrompido(segmento)) {
+				if (!gquiet) {
+					printf("Os dados chegaram normalmente. %d\n", conexao->segmento.cabecalho.flags);
+				}
 				if (CHECAR_FLAG_EXCLUSIVO(conexao->segmento, CONEXAO_CONFIRMADA)) {
 					// Marca a conexão como estabelecida.
+					if (!gquiet) {
+						printf("Marca a conexão como estabelecida.\n");
+					}
 					conexao->estado = MPW_CONEXAO_ESTABELECIDA;
 					break;
 				}
 
 				// Verifica se a conexão (remota) foi fechada prematuramente.
+				if (!gquiet) {
+					printf("Verifica se a conexão (remota) foi fechada prematuramente.\n");
+				}
 				if (CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
 					// Marca a conexão (local) como fechada.
+					if (!gquiet) {
+						printf("Marca a conexão (local) como fechada.\n");
+					}
 					conexao->estado = MPW_CONEXAO_INATIVA;
 					sfd_cliente = -1;
 					break;
 				}
 			} else {
-
-				// Marca que não há dados.
-				conexao->tem_dado = 0;
-
 				// Reenvia o ack.
+				if (!gquiet) {
+					printf("Reenvia o ack.\n");
+				}
 				__mpw_write(segmento);
 			}
 		}
@@ -219,6 +243,7 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 			if (!conexao->tem_dado) {
 				continue;
 			}
+			conexao->tem_dado = 0;
 
 			// Se os dados chegaram normalmente.
 			if (retval == 0 && !segmento_corrompido(&conexao->segmento)) {
@@ -251,8 +276,6 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 				if(!gquiet){
 					printf("Solicita novamente a abertura de conexão\n");
 				}
-				// Marca que não há dados.
-				conexao->tem_dado = 0;
 
 				// Solicita novamente a abertura de conexão.
 				__mpw_write(&segmento);
@@ -277,7 +300,6 @@ void __mpw_cleanup() {
 	for (fd = 0; fd < max_conexoes; fd++) {
 		mpw_close(fd);
 	}
-	exit(0);
 }
 
 void INThandler(int sig) {
@@ -384,7 +406,7 @@ void _v_mpw_write(mpw_segmento_t *segmento, __mpw_write_args in) {
 		// Calcula a probabilidade de um pacote demorar para chegar ao destino.
 		// Utilizado para simular o estouro de temporizador.
 		if (rand() % 101 < probabilidade_atrasar) {
-			sleep(gestimated_rtt);
+			usleep(gestimated_rtt * 1000);
 		}
 	}
 
@@ -413,13 +435,13 @@ void *__processar_mensagens(void *args) {
 			// Copia os dados lidos para o segmento correto.
 			indice = ntohl(mensagem_conexao.segmento.cabecalho.id);
 			mpw_conexao_t *conexao = &gconexoes[indice];
+			pthread_mutex_lock(&conexao->mutex);
 			memcpy(&conexao->segmento, &mensagem_conexao.segmento, sizeof mensagem_conexao.segmento);
 			if (!segmento_corrompido(&conexao->segmento)) {
 				conexao->ip_origem = mensagem_conexao.ip_origem;
 				conexao->porta_origem = mensagem_conexao.porta_origem;
 				
 				// Verifica confirmação do accept.
-				pthread_mutex_lock(&conexao->mutex);
 				if (CHECAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
 					// Enviar a confirmação da conexão.
 					DEFINIR_FLAG(mensagem_conexao.segmento, CONEXAO_CONFIRMADA);
@@ -437,12 +459,10 @@ void *__processar_mensagens(void *args) {
 
 					__mpw_write(&mensagem_conexao.segmento);
 				}
-				pthread_mutex_unlock(&conexao->mutex);
 			}
 
 
 			// Avisa para a função de leitura que há novos dados.
-			pthread_mutex_lock(&conexao->mutex);
 			conexao->tem_dado = 1;
 			pthread_cond_signal(&conexao->cond);
 			pthread_mutex_unlock(&conexao->mutex);

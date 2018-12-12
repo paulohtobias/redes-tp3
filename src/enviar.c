@@ -1,9 +1,5 @@
 #include "enviar.h"
 
-void __init_enviar(){
-	
-}
-
 ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 	mpw_segmento_t pacote = (mpw_segmento_t){0};
 	mpw_conexao_t *conexao = &gconexoes[sockfd];

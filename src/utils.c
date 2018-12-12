@@ -24,3 +24,27 @@ int mpw_rtt(pthread_cond_t *cond, pthread_mutex_t *mutex, int tempo_ms){
 
     return pthread_cond_timedwait(cond, mutex, &ts);
 }
+
+void *carregar_arquivo(FILE *in, size_t *tamanho_arquivo) {
+	if (in == NULL) {
+		handle_error(0, "carregar_arquivo-abrir");
+		*tamanho_arquivo = 0;
+		return NULL;
+	}
+	uint8_t *dados = NULL;
+
+	fseek(in, 0, SEEK_END);
+	*tamanho_arquivo = ftell(in);
+	rewind(in);
+	dados = malloc(*tamanho_arquivo);
+	if (dados == NULL) {
+		handle_error(0, "carregar_arquivo-malloc");
+		*tamanho_arquivo = 0;
+		fclose(in);
+		return NULL;
+	}
+	fread(dados, 1, *tamanho_arquivo, in);
+	fclose(in);
+
+	return dados;
+}

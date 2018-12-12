@@ -29,4 +29,7 @@ extern int gquiet;
 	// 0 se sucesso, erro caso contrário
 	int mpw_rtt(pthread_cond_t *cond, pthread_mutex_t *mutex, int tempo_ms);
 
+	// Carrega um arquivo.
+	void *carregar_arquivo(FILE *in, size_t *tamanho_arquivo);
+
 #endif //UTILS_H

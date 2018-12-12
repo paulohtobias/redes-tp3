@@ -37,7 +37,12 @@ int conversao_double(opcao_t *opcao, const void *valor){
 }
 
 int conversao_str(opcao_t *opcao, const void *valor){
-	strncpy(opcao->buffer, valor, opcao->tipo.tamanho);
+	// Verifica se é pra alocar dinamicamente.
+	if (opcao->tipo.tamanho < 1) {
+		opcao->tipo.tamanho = strlen((char *) valor);
+		*((char **) opcao->buffer) = malloc(opcao->tipo.tamanho + 1);
+	}
+	strncpy(*((char **) opcao->buffer), valor, opcao->tipo.tamanho);
 	return 1;
 }
 

@@ -46,7 +46,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 		// Tem dados novos.
 		if (buffer_cru != NULL) {
 			// Verifica se os novos bytes não extrapolam o buffer cru.
-			if (*buffer_cru != NULL && buffer_cru_offset + conexao->segmento.cabecalho.tamanho_dados >= *buffer_cru_tamanho) {
+			if (*buffer_cru != NULL && buffer_cru_offset + conexao->segmento.cabecalho.tamanho_dados > *buffer_cru_tamanho) {
 				*buffer_cru_tamanho = buffer_cru_offset + conexao->segmento.cabecalho.tamanho_dados + 1;
 				*buffer_cru = realloc(*buffer_cru, *buffer_cru_tamanho);
 
@@ -67,7 +67,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 		seq_recebido = GET_SEQ(conexao->segmento);
 		if (!segmento_corrompido(&conexao->segmento) && (seq_recebido == seq_esperado || seq_recebido == -1)) {
 			// Verifica se os novos bytes não extrapolam o buffer.
-			if (bytes_lidos_total + conexao->segmento.cabecalho.tamanho_dados < buffer_tamanho) {
+			if (bytes_lidos_total + conexao->segmento.cabecalho.tamanho_dados <= buffer_tamanho) {
 				// Copia os novos dados para o buffer.
 				memcpy(buffer + conexao->offset, &conexao->segmento.dados, conexao->segmento.cabecalho.tamanho_dados);
 
