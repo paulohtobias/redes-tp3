@@ -12,7 +12,7 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 	int ack_esp = ACK_1;
 	ssize_t bytes_escritos = 0;
 
-	pacote.cabecalho.socket = conexao->id;
+	pacote.cabecalho.id = conexao->id;
 	pacote.cabecalho.ip_origem = conexao->ip_origem;
 	pacote.cabecalho.porta_origem = conexao->porta_origem;
 	
@@ -41,10 +41,10 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 		pthread_mutex_lock(&(conexao->mutex));
 		
 		conexao->tem_dado = 0;
-		__mpw_write(&pacote);
+		__mpw_write(&pacote, true);
 		// Realiza a tentativa de enviar o dado
 		while (!conexao->tem_dado) {
-			if(!gquiet){printf("Inicio loop\n");}
+			if(!gquiet){printf("Inicio loop %s\n", __func__);}
 			int retval = mpw_rtt(
 					&conexao->cond, 
 					&conexao->mutex, 
@@ -54,26 +54,33 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 			if (retval == ETIMEDOUT) {
 				if(!gquiet){printf("Olha o timeout\n");}
 				conexao->tem_dado = 0;
-				__mpw_write(&pacote);
+				__mpw_write(&pacote, true);
 			} else {
 				// Se os dados chegaram normalmente.				
 				if (retval == 0 && 
-					!segmento_corrompido(&conexao->segmento) && 
-					ack_esp == IS_ACK(conexao->segmento)
+					!segmento_corrompido(&conexao->segmento)
 				){
-					break;
+					// Pedido de finalizacao de conexao
+					if(CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)){
+						pthread_mutex_unlock(&conexao->mutex);
+						return bytes_escritos;
+					}else 
+					// Verifica se é um ACK válido	
+					if(ack_esp == IS_ACK(conexao->segmento)){
+						break;
+					}else{
+						conexao->tem_dado = 0;
+						__mpw_write(&pacote, true);
+					}
 				} 
 				// Se chegou qualquer outro pacote não ACK esperado
 				else {
 					// Buffer no destinatário encheu, não é possível alocar mais
 					if(CHECAR_FLAG_EXCLUSIVO(conexao->segmento, BUFFER_CHEIO)){
 						ack_esp = 1;
-					}else if(CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)){
-						pthread_mutex_unlock(&conexao->mutex);
-						return bytes_escritos;
 					}
 					conexao->tem_dado = 0;
-					__mpw_write(&pacote);
+					__mpw_write(&pacote, true);
 				}
 			}
 		}

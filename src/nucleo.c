@@ -29,7 +29,7 @@ uint16_t calcular_checksum(const mpw_segmento_t *segmento) {
 	pu32_t sockfd;
 	pu32_t ip_origem;
 
-	sockfd.val = segmento->cabecalho.socket;
+	sockfd.val = segmento->cabecalho.id;
 	ip_origem.val = segmento->cabecalho.ip_origem;
 
 	checksum = __soma_checksum(checksum, sockfd.b[0]);
@@ -63,7 +63,7 @@ void segmento_corrigir_endianness(mpw_segmento_t *segmento, bool leitura) {
 		convert_short = ntohs;
 	}
 	
-	segmento->cabecalho.socket = convert_long(segmento->cabecalho.socket);
+	segmento->cabecalho.id = convert_long(segmento->cabecalho.id);
 	segmento->cabecalho.ip_origem = convert_long(segmento->cabecalho.ip_origem);
 	segmento->cabecalho.porta_origem = convert_short(segmento->cabecalho.porta_origem);
 	segmento->cabecalho.flags = convert_short(segmento->cabecalho.flags);

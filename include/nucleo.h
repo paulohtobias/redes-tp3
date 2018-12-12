@@ -35,7 +35,7 @@ enum MPW_FLAGS {
  * 
  *  <─────────── 32 bits ──────────>
  * ┌────────────────────────────────┐
- * │             socket             │
+ * │               id               │
  * ├────────────────────────────────┤
  * │           ip origem            │
  * ├────────────────┬───────────────┤
@@ -47,7 +47,7 @@ enum MPW_FLAGS {
  */
 
 typedef struct mpw_cabecalho_t {
-	int socket;
+	int id;
 	in_addr_t ip_origem;
 	in_port_t porta_origem;
 	uint16_t flags;

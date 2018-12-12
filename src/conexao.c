@@ -95,7 +95,7 @@ int mpw_accept(int sfd) {
 	conexao->estado = MPW_CONEXAO_CONECTANDO;
 	conexao->offset = 0;
 	conexao->tem_dado = 0;
-	conexao->id = segmento->cabecalho.socket;
+	conexao->id = segmento->cabecalho.id;
 	conexao->ip_origem = pedido_conexao.ip_origem;
 	conexao->porta_origem = pedido_conexao.porta_origem;
 	
@@ -107,7 +107,7 @@ int mpw_accept(int sfd) {
 
 	// Confirma a conexão.
 	DEFINIR_FLAG(*segmento, ACEITOU_CONEXAO);
-	segmento->cabecalho.socket = sfd_cliente;
+	segmento->cabecalho.id = sfd_cliente;
 	segmento->cabecalho.ip_origem = pedido_conexao.ip_origem;
 	segmento->cabecalho.porta_origem = pedido_conexao.porta_origem;
 	pthread_mutex_lock(&conexao->mutex);
@@ -181,7 +181,7 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 
 
 	// Montando o cabeçalho para solicitar a conexão.
-	segmento.cabecalho.socket = sfd;
+	segmento.cabecalho.id = sfd;
 	segmento.cabecalho.ip_origem = ((struct sockaddr_in *) addr)->sin_addr.s_addr;
 	segmento.cabecalho.porta_origem = ((struct sockaddr_in *) addr)->sin_port;
 	segmento.cabecalho.flags = INICIAR_CONEXAO;
@@ -217,16 +217,16 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 			}
 
 			// Se os dados chegaram normalmente.
-			if(!gquiet){
-				printf("Se os dados chegaram normalmente\n");
-			}
 			if (retval == 0 && !segmento_corrompido(&conexao->segmento)) {
 				if (CHECAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
+					if(!gquiet){
+						printf("#### Os dados chegaram normalmente #####\n");
+					}
 					// Marca a conexão como ativa e define os atributos de multiplexação.
 					pthread_mutex_lock(&mutex_conexoes);
 					conexao->estado = MPW_CONEXAO_ESTABELECIDA;
 					pthread_mutex_unlock(&mutex_conexoes);
-					conexao->id = conexao->segmento.cabecalho.socket;
+					conexao->id = conexao->segmento.cabecalho.id;
 					/*conexao->ip_origem = conexao->segmento.cabecalho.ip_origem;
 					conexao->porta_origem = conexao->segmento.cabecalho.porta_origem;*/
 					if(!gquiet){
@@ -290,7 +290,7 @@ int mpw_close(int sfd) {
 	conexao->estado = MPW_CONEXAO_INATIVA;
 	mpw_segmento_t segmento;
 
-	segmento.cabecalho.socket = conexao->id;
+	segmento.cabecalho.id = conexao->id;
 	segmento.cabecalho.ip_origem = conexao->ip_origem;
 	segmento.cabecalho.porta_origem = conexao->porta_origem;
 	segmento.cabecalho.flags = TERMINAR_CONEXAO;
@@ -349,28 +349,31 @@ int mpw_close(int sfd) {
 void enviar_ack(mpw_segmento_t segmento, int ack) {
 	segmento.cabecalho.flags = ack;
 
-	__mpw_write(&segmento);
+	__mpw_write(&segmento, true);
 }
 
-void __mpw_write(mpw_segmento_t *segmento) {
+void _v_mpw_write(mpw_segmento_t *segmento, __mpw_write_args in) {
 	// Calcular checksum
+	bool inconsistencia = (in.inconsistencia)? true: false;
 	segmento->cabecalho.checksum = calcular_checksum(segmento);
 
-	// Calcula probabilidade de um pacote ser descartado (simula perda de
-	// pacote por descarte de roteadores).
-	if (rand() % 101 < probabilidade_descartar) {
-		return;
-	}
+	if(inconsistencia){
+		// Calcula probabilidade de um pacote ser descartado (simula perda de
+		// pacote por descarte de roteadores).
+		if (rand() % 101 < probabilidade_descartar) {
+			return;
+		}
 
-	// Calcula probabilidade de um pacote ser corrompido durante o envio.
-	if (rand() % 101 < probabilidade_corromper) {
-		segmento->cabecalho.checksum++;
-	}
+		// Calcula probabilidade de um pacote ser corrompido durante o envio.
+		if (rand() % 101 < probabilidade_corromper) {
+			segmento->cabecalho.checksum++;
+		}
 
-	// Calcula a probabilidade de um pacote demorar para chegar ao destino.
-	// Utilizado para simular o estouro de temporizador.
-	if (rand() % 101 < probabilidade_atrasar) {
-		sleep(gestimated_rtt);
+		// Calcula a probabilidade de um pacote demorar para chegar ao destino.
+		// Utilizado para simular o estouro de temporizador.
+		if (rand() % 101 < probabilidade_atrasar) {
+			sleep(gestimated_rtt);
+		}
 	}
 
 	struct sockaddr_in addr;
@@ -396,7 +399,7 @@ void *__processar_mensagens(void *args) {
 		if (remover_fila(&gfila_mensagens, &mensagem_conexao)) {
 
 			// Copia os dados lidos para o segmento correto.
-			indice = ntohl(mensagem_conexao.segmento.cabecalho.socket);
+			indice = ntohl(mensagem_conexao.segmento.cabecalho.id);
 			mpw_conexao_t *conexao = &gconexoes[indice];
 			memcpy(&conexao->segmento, &mensagem_conexao.segmento, sizeof mensagem_conexao.segmento);
 			if (!segmento_corrompido(&conexao->segmento)) {
@@ -491,7 +494,7 @@ void *__mpw_read(void* args) {
                     "\tip origem: %d"
                     "\tporta %d | flags: %d\n"
                     "\ttamanho: %d | checksum: %d\n\n",
-                    conexao.segmento.cabecalho.socket,
+                    conexao.segmento.cabecalho.id,
                     conexao.segmento.cabecalho.ip_origem,
                     conexao.segmento.cabecalho.porta_origem, conexao.segmento.cabecalho.flags,
                     conexao.segmento.cabecalho.tamanho_dados, conexao.segmento.cabecalho.checksum
@@ -505,7 +508,7 @@ void *__mpw_read(void* args) {
 
 				//TODO: APAGAR ISSO AQUI E CHAMAR A processar_conexões quando ela tiver pronta
 				pthread_mutex_lock(&mutex_conexoes);
-				id = conexao.segmento.cabecalho.socket;
+				id = conexao.segmento.cabecalho.id;
 				for (i = 0; i < max_conexoes; i++) {
 					if (gconexoes[i].estado == MPW_CONEXAO_CONECTANDO && 
 						gconexoes[i].id == id && 

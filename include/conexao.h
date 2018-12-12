@@ -52,8 +52,13 @@ int mpw_close(int sfd);
 
 void enviar_ack(mpw_segmento_t segmento, int ack);
 
-void __mpw_write(mpw_segmento_t *segmento);
-
 void *__mpw_read(void *args);
+
+typedef struct{bool inconsistencia;} __mpw_write_args;
+#define __mpw_write(segmento, ...)\
+	_v_mpw_write(segmento, (__mpw_write_args){__VA_ARGS__})
+
+// Funções com parâmetros variados
+void _v_mpw_write(mpw_segmento_t *segmento, __mpw_write_args in);
 
 #endif //CONEXAO_H

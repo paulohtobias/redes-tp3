@@ -21,7 +21,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 	size_t buffer_cru_offset = 0;
 
 	// Inicializa o segmento para enviar os ACKS.
-	segmento_ack.cabecalho.socket = conexao->id;
+	segmento_ack.cabecalho.id = conexao->id;
 	segmento_ack.cabecalho.ip_origem = conexao->ip_origem;
 	segmento_ack.cabecalho.porta_origem = conexao->porta_origem;
 	segmento_ack.cabecalho.tamanho_dados = 0;
