@@ -397,16 +397,22 @@ void _v_mpw_write(mpw_segmento_t *segmento, __mpw_write_args in) {
 	// Calcular checksum
 	bool inconsistencia = (in.inconsistencia)? true: false;
 	segmento->cabecalho.checksum = calcular_checksum(segmento);
-
+	
+	// e:: Acrescenta a quantidade de pacotes corrompidos.
+	qpacotes_enviados++;
 	if(inconsistencia){
 		// Calcula probabilidade de um pacote ser descartado (simula perda de
 		// pacote por descarte de roteadores).
 		if (rand() % 101 < probabilidade_descartar) {
+			// e:: Acrescenta a quantidade de pacotes perdidos.
+			qpacotes_perdidos++;
 			return;
 		}
 
 		// Calcula probabilidade de um pacote ser corrompido durante o envio.
 		if (rand() % 101 < probabilidade_corromper) {
+			// e:: Acrescenta a quantidade de pacotes corrompidos.
+			qpacotes_corrompidos++;
 			segmento->cabecalho.checksum++;
 		}
 
@@ -425,7 +431,7 @@ void _v_mpw_write(mpw_segmento_t *segmento, __mpw_write_args in) {
 	mpw_segmento_t copia = *segmento;
 	segmento_corrigir_endianness(&copia, false);
 
-	int bytes_escritos = sendto(__socket_real, &copia, sizeof copia, 0, (struct sockaddr *) &addr, sizeof addr);
+	sendto(__socket_real, &copia, sizeof copia, 0, (struct sockaddr *) &addr, sizeof addr);
 
 	if (!gquiet) {
 		printf("%lu: Enviando segmento para %s:%d\n", time(NULL), inet_ntoa(addr.sin_addr), addr.sin_port);
@@ -473,26 +479,6 @@ void *__processar_mensagens(void *args) {
 	pthread_mutex_unlock(&conexao->mutex);
 	
 	return NULL;
-}
-
-bool processar_conexoes(){
-	//TODO: mover pra outra thread e otimizar a busca e a região crítica.
-	pthread_mutex_lock(&mutex_conexoes);
-	int i, id = 0;
-	mpw_segmento_t segmento;
-	//int i, id = segmento.cabecalho.socket;
-	for (i = 0; i < max_conexoes; i++) {
-		if (gconexoes[i].estado == MPW_CONEXAO_CONECTANDO && 
-			gconexoes[i].id == id && 
-			gconexoes[i].ip_origem == segmento.cabecalho.ip_origem && 
-			gconexoes[i].porta_origem == segmento.cabecalho.porta_origem) {
-			
-			pthread_mutex_unlock(&mutex_conexoes);
-			continue;
-		}
-	}
-	pthread_mutex_unlock(&mutex_conexoes);
-	return true;
 }
 
 void *__mpw_read(void* args) {

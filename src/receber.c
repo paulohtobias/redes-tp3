@@ -122,12 +122,11 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 				ack = BUFFER_CHEIO;
 				terminou = 1;
 			}
-		} else {
-			// e:: Incrementa a quantidade de pacotes corrompidos.
-			qpacotes_corrompidos++;
+		} else { // Se for um pacote não esperado.
 			ack = 3 - seq_esperado;
+			// e:: Acrescenta a quantidade de pacotes reenviados.
+			qpacotes_reenviados++;
 		}
-
 		enviar_ack(segmento_ack, ack);
 	}
 

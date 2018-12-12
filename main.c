@@ -152,9 +152,8 @@ int main(int argc, char *argv[]) {
 		fclose(out);
 
 		printf(
-			"Mensagem original '%s': %lu bytes\n"
+			"Mensagem original: %lu bytes\n"
 			"Total de dados recebidos: %lu bytes\n",
-			mensagem,
 			tamanho_mensagem, buffer_cru_tamanho
 		);
 	}

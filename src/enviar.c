@@ -38,8 +38,6 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 		
 		conexao->tem_dado = 0;
 		__mpw_write(&pacote, true);
-		// e:: Incrementando o número de pacotes enviados.
-		qpacotes_enviados++;
 		// Espera o ACK
 		while (!conexao->tem_dado) {
 			if(!gquiet){printf("Inicio loop %s\n", __func__);}
@@ -51,12 +49,9 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 			// Se estourar o temporizador.
 			if (retval == ETIMEDOUT) {
 				if(!gquiet){printf("Timeout estourado.\n");}
-				// e:: Acrescenta a quantidade de pacotes supostamente perdidos.
-				qpacotes_perdidos++;
 				conexao->tem_dado = 0;
 				__mpw_write(&pacote, true);
-				// e:: Incrementando o número de pacotes enviados e reenviados.
-				qpacotes_enviados++;
+				// e:: Acrescenta a quantidade de pacotes reenviados.
 				qpacotes_reenviados++;
 			} else {
 				if(!conexao->tem_dado){
@@ -65,9 +60,8 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 				conexao->tem_dado = 0;
 				
 				// Se os dados chegaram normalmente.				
-				if (retval == 0 && 
-					!segmento_corrompido(&conexao->segmento)
-				){
+				if (retval == 0 && !segmento_corrompido(&conexao->segmento)){
+
 					// Pedido de finalizacao de conexao
 					if(CHECAR_FLAG_EXCLUSIVO(conexao->segmento, TERMINAR_CONEXAO)){
 						conexao->tem_dado = 0;
@@ -84,14 +78,12 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 					}else{
 						conexao->tem_dado = 0;
 						__mpw_write(&pacote, true);
-						// e:: Incrementando o número de pacotes enviados e reenviados.
-						qpacotes_enviados++;
+						// e:: Acrescenta a quantidade de pacotes reenviados.
 						qpacotes_reenviados++;
 					}
-				}
-				// Se chegou qualquer outro pacote não ACK esperado
+				}// Se chegou qualquer outro pacote não ACK esperado
 				else {
-					// Buffer no destinatário encheu, não é possível alocar mais
+
 					if(!gquiet){
 						printf("################################################\n");
 						printf("############        Corrompido        ##########\n");
@@ -99,8 +91,7 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 					}
 					conexao->tem_dado = 0;
 					__mpw_write(&pacote, true);
-					// e:: Incrementando o número de pacotes enviados e reenviados.
-					qpacotes_enviados++;
+					// e:: Acrescenta a quantidade de pacotes reenviados.
 					qpacotes_reenviados++;
 				}
 			}
