@@ -63,7 +63,7 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 				if (retval == 0 && !segmento_corrompido(&conexao->segmento)){
 
 					// Pedido de finalizacao de conexao
-					if(CHECAR_FLAG_EXCLUSIVO(conexao->segmento, TERMINAR_CONEXAO)){
+					if(CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)){
 						conexao->tem_dado = 0;
 						pthread_mutex_unlock(&conexao->mutex);
 						if(!gquiet){printf("\033[0;34m############## TERMINEI A CONEXAO ##############\033[0m\n");}
