@@ -2,12 +2,14 @@
 
 ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, size_t *buffer_cru_tamanho) {
 	if (fd >= max_conexoes) {
+		fprintf(stderr, "Socket inválido\n");
 		return -1;
 	}
 
 	mpw_conexao_t *conexao = &gconexoes[fd];
 
 	if (conexao->estado != MPW_CONEXAO_ESTABELECIDA) {
+		fprintf(stderr, "Conexão não foi estabilecida.\n");
 		return -1;
 	}
 
@@ -91,6 +93,7 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 
 		enviar_ack(segmento_ack, ack);
 	}
+
 	return bytes_lidos_total;
 }
 

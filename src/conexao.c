@@ -10,12 +10,15 @@ pthread_t thread_read;
 // Socket interno.
 int __socket_real = -1;
 
+
+void __mpw_cleanup();
 void INThandler(int sig);
 
 void *__processar_mensagens(void *args);
 
 void init_conexoes() {
 	int i;
+	atexit(__mpw_cleanup);
 	signal(SIGINT, INThandler);
 	iniciar_fila(&gfila_conexoes, sizeof(mpw_conexao_t), true);
 	iniciar_fila(&gfila_mensagens, sizeof(mpw_conexao_t), true);
@@ -34,6 +37,7 @@ void init_conexoes() {
 int mpw_socket() {
 	// Cria o socket real.
 	if (__socket_real == -1) {
+		// Cria um socket UDP.
 		__socket_real = socket(AF_INET, SOCK_DGRAM, 0);
 		if (__socket_real == -1) {
 			handle_error(errno, "mpw_socket-socket");
@@ -266,6 +270,14 @@ int mpw_connect(int sfd, const struct sockaddr *addr, socklen_t addrlen) {
 		printf("Finalizacao\n");
 	}
 	return 0;
+}
+
+void __mpw_cleanup() {
+	int fd;
+	for (fd = 0; fd < max_conexoes; fd++) {
+		mpw_close(fd);
+	}
+	exit(0);
 }
 
 void INThandler(int sig) {

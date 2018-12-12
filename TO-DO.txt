@@ -1,4 +1,4 @@
-- [ ] capturar sinal ctr-c pra mandar o close pra outra ponta.
+- [X] capturar sinal ctr-c pra mandar o close pra outra ponta.
 
 - [X] iniciar as threads auxiliares na função init.
 
