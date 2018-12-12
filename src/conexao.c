@@ -347,8 +347,7 @@ int mpw_close(int sfd) {
 		printf("Travei regiao critica\n");
 	}
 	int retval;
-	uint64_t heartbit = ((uint64_t) 1) << 63;
-	heartbit = 100;
+	uint16_t heartbit = 1000;
 	conexao->tem_dado = 0;
 	while (!conexao->tem_dado && heartbit > 0) {
 		retval = mpw_rtt(&conexao->cond, &conexao->mutex, gestimated_rtt);

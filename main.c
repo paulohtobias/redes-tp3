@@ -157,9 +157,10 @@ int main(int argc, char *argv[]) {
 			tamanho_mensagem, buffer_cru_tamanho
 		);
 	}
-	printf ("e:: Quantidade de pacotes corrompidos: %ld.\n", qpacotes_corrompidos);
-	printf ("e:: Quantidade de pacotes perdidos: %ld.\n", qpacotes_perdidos);
+	printf ("e:: %ld;%ld;%ld;%ld.\n", qpacotes_enviados, qpacotes_reenviados, qpacotes_perdidos, qpacotes_corrompidos);
 	printf ("e:: Quantidade de pacotes enviados ao todo: %ld.\n", qpacotes_enviados);
 	printf ("e:: Quantidade de pacotes reenviados ao todo: %ld.\n", qpacotes_reenviados);
+	printf ("e:: Quantidade de pacotes perdidos: %ld.\n", qpacotes_perdidos);
+	printf ("e:: Quantidade de pacotes corrompidos: %ld.\n", qpacotes_corrompidos);
 	return 0;
 }
