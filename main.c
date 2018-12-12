@@ -11,6 +11,12 @@ int main(int argc, char *argv[]) {
 	char *endereco;
 	in_port_t porta;
 
+	qpacotes_corrompidos = 0;
+	qpacotes_perdidos = 0;
+	qpacotes_enviados = 0;
+	qacks_corrompidos = 0;
+	qpacotes_reenviados = 0;
+
 	opcao_t opcoes[] = {
 		OPCAO_INIT('q', tipo_bool, &gquiet, "0", "Suprime todas as mensagens da saída padrão"),
 		OPCAO_INIT('R', tipo_int, &gestimated_rtt, "RTT=100", "Estimated RTT em milissegundos"),
@@ -152,6 +158,9 @@ int main(int argc, char *argv[]) {
 			tamanho_mensagem, buffer_cru_tamanho
 		);
 	}
-
+	printf ("e:: Quantidade de pacotes corrompidos: %ld.\n", qpacotes_corrompidos);
+	printf ("e:: Quantidade de pacotes perdidos: %ld.\n", qpacotes_perdidos);
+	printf ("e:: Quantidade de pacotes enviados ao todo: %ld.\n", qpacotes_enviados);
+	printf ("e:: Quantidade de pacotes reenviados ao todo: %ld.\n", qpacotes_reenviados);
 	return 0;
 }

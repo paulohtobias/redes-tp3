@@ -123,6 +123,8 @@ ssize_t receber(int fd, void *buffer, size_t buffer_tamanho, void **buffer_cru, 
 				terminou = 1;
 			}
 		} else {
+			// e:: Incrementa a quantidade de pacotes corrompidos.
+			qpacotes_corrompidos++;
 			ack = 3 - seq_esperado;
 		}
 

@@ -38,6 +38,8 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 		
 		conexao->tem_dado = 0;
 		__mpw_write(&pacote, true);
+		// e:: Incrementando o número de pacotes enviados.
+		qpacotes_enviados++;
 		// Espera o ACK
 		while (!conexao->tem_dado) {
 			if(!gquiet){printf("Inicio loop %s\n", __func__);}
@@ -49,8 +51,13 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 			// Se estourar o temporizador.
 			if (retval == ETIMEDOUT) {
 				if(!gquiet){printf("Timeout estourado.\n");}
+				// e:: Acrescenta a quantidade de pacotes supostamente perdidos.
+				qpacotes_perdidos++;
 				conexao->tem_dado = 0;
 				__mpw_write(&pacote, true);
+				// e:: Incrementando o número de pacotes enviados e reenviados.
+				qpacotes_enviados++;
+				qpacotes_reenviados++;
 			} else {
 				if(!conexao->tem_dado){
 					continue;
@@ -77,6 +84,9 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 					}else{
 						conexao->tem_dado = 0;
 						__mpw_write(&pacote, true);
+						// e:: Incrementando o número de pacotes enviados e reenviados.
+						qpacotes_enviados++;
+						qpacotes_reenviados++;
 					}
 				}
 				// Se chegou qualquer outro pacote não ACK esperado
@@ -89,6 +99,9 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 					}
 					conexao->tem_dado = 0;
 					__mpw_write(&pacote, true);
+					// e:: Incrementando o número de pacotes enviados e reenviados.
+					qpacotes_enviados++;
+					qpacotes_reenviados++;
 				}
 			}
 		}

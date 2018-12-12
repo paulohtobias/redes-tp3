@@ -4,6 +4,13 @@
 #include "utils.h"
 #include "fila.h"
 
+/// Variáveis para contabilização estatística.
+ssize_t qpacotes_corrompidos;
+ssize_t qpacotes_perdidos;
+ssize_t qpacotes_enviados;
+ssize_t qacks_corrompidos;
+ssize_t qpacotes_reenviados;
+
 /// Variáveis para controle de erros.
 extern int8_t probabilidade_corromper;
 extern int8_t probabilidade_descartar;
