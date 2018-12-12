@@ -16,12 +16,23 @@ void INThandler(int sig);
 
 void *__processar_mensagens(void *args);
 
+#define prints(segmento) \
+	printf(\
+		"\tsocket: %d\n"\
+		"\tip origem: %d"\
+		"\tporta %d | flags: %d\n"\
+		"\ttamanho: %d | checksum: %d\n\n",\
+		(segmento).cabecalho.id,\
+		(segmento).cabecalho.ip_origem,\
+		(segmento).cabecalho.porta_origem, (segmento).cabecalho.flags,\
+		(segmento).cabecalho.tamanho_dados, (segmento).cabecalho.checksum\
+	);
+
 void init_conexoes() {
 	int i;
 	atexit(__mpw_cleanup);
 	signal(SIGINT, INThandler);
 	iniciar_fila(&gfila_conexoes, sizeof(mpw_conexao_t), true);
-	iniciar_fila(&gfila_mensagens, sizeof(mpw_conexao_t), true);
 	gconexoes = calloc(max_conexoes, sizeof(mpw_conexao_t));
 	for (i = 0; i < max_conexoes; i++) {
 		pthread_mutex_init(& gconexoes[i].mutex, NULL);
@@ -29,8 +40,6 @@ void init_conexoes() {
 	}
 
 	// Cria as threads operárias.
-	//pthread_create(&thread_processar_conexoes, NULL, processar_conexoes, NULL);
-	pthread_create(&thread_processar_mensagens, NULL, __processar_mensagens, NULL);
 	pthread_create(&thread_read, NULL, __mpw_read, NULL);
 }
 
@@ -421,53 +430,51 @@ void _v_mpw_write(mpw_segmento_t *segmento, __mpw_write_args in) {
 	int bytes_escritos = sendto(__socket_real, &copia, sizeof copia, 0, (struct sockaddr *) &addr, sizeof addr);
 
 	if (!gquiet) {
-		printf("%s: bytes_escritos: %d\n", __FUNCTION__, bytes_escritos);
+		printf("%lu: Enviando segmento para %s:%d\n", time(NULL), inet_ntoa(addr.sin_addr), addr.sin_port);
+		prints(*segmento);
 	}
 }
 
 void *__processar_mensagens(void *args) {
-	mpw_conexao_t mensagem_conexao;
+	mpw_conexao_t mensagem_conexao = *((mpw_conexao_t *) args);
 	unsigned int indice;
 
-	while (1) {
-		if (remover_fila(&gfila_mensagens, &mensagem_conexao)) {
+	// Copia os dados lidos para o segmento correto.
+	indice = ntohl(mensagem_conexao.segmento.cabecalho.id);
+	mpw_conexao_t *conexao = &gconexoes[indice];
+	pthread_mutex_lock(&conexao->mutex);
+	memcpy(&conexao->segmento, &mensagem_conexao.segmento, sizeof mensagem_conexao.segmento);
+	if (!segmento_corrompido(&conexao->segmento)) {
+		conexao->ip_origem = mensagem_conexao.ip_origem;
+		conexao->porta_origem = mensagem_conexao.porta_origem;
+		
+		// Verifica confirmação do accept.
+		if (CHECAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
+			// Enviar a confirmação da conexão.
+			DEFINIR_FLAG(mensagem_conexao.segmento, CONEXAO_CONFIRMADA);
+			mensagem_conexao.segmento.cabecalho.ip_origem = mensagem_conexao.ip_origem;
+			mensagem_conexao.segmento.cabecalho.porta_origem = mensagem_conexao.porta_origem;
+			__mpw_write(&mensagem_conexao.segmento);
+		} else if (CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
+			// Enviar a confirmação do fechamento da conexão.
+			DEFINIR_FLAG(mensagem_conexao.segmento, CONFIRMOU_TERMINO);
+			mensagem_conexao.segmento.cabecalho.ip_origem = mensagem_conexao.ip_origem;
+			mensagem_conexao.segmento.cabecalho.porta_origem = mensagem_conexao.porta_origem;
+			
+			// Marca a conexão como inativa.
+			conexao->estado = MPW_CONEXAO_INATIVA;
 
-			// Copia os dados lidos para o segmento correto.
-			indice = ntohl(mensagem_conexao.segmento.cabecalho.id);
-			mpw_conexao_t *conexao = &gconexoes[indice];
-			pthread_mutex_lock(&conexao->mutex);
-			memcpy(&conexao->segmento, &mensagem_conexao.segmento, sizeof mensagem_conexao.segmento);
-			if (!segmento_corrompido(&conexao->segmento)) {
-				conexao->ip_origem = mensagem_conexao.ip_origem;
-				conexao->porta_origem = mensagem_conexao.porta_origem;
-				
-				// Verifica confirmação do accept.
-				if (CHECAR_FLAG_EXCLUSIVO(conexao->segmento, ACEITOU_CONEXAO)) {
-					// Enviar a confirmação da conexão.
-					DEFINIR_FLAG(mensagem_conexao.segmento, CONEXAO_CONFIRMADA);
-					mensagem_conexao.segmento.cabecalho.ip_origem = mensagem_conexao.ip_origem;
-					mensagem_conexao.segmento.cabecalho.porta_origem = mensagem_conexao.porta_origem;
-					__mpw_write(&mensagem_conexao.segmento);
-				} else if (CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)) {
-					// Enviar a confirmação do fechamento da conexão.
-					DEFINIR_FLAG(mensagem_conexao.segmento, CONFIRMOU_TERMINO);
-					mensagem_conexao.segmento.cabecalho.ip_origem = mensagem_conexao.ip_origem;
-					mensagem_conexao.segmento.cabecalho.porta_origem = mensagem_conexao.porta_origem;
-					
-					// Marca a conexão como inativa.
-					conexao->estado = MPW_CONEXAO_INATIVA;
-
-					__mpw_write(&mensagem_conexao.segmento);
-				}
-			}
-
-
-			// Avisa para a função de leitura que há novos dados.
-			conexao->tem_dado = 1;
-			pthread_cond_signal(&conexao->cond);
-			pthread_mutex_unlock(&conexao->mutex);
+			__mpw_write(&mensagem_conexao.segmento);
 		}
 	}
+
+
+	// Avisa para a função de leitura que há novos dados.
+	conexao->tem_dado = 1;
+	pthread_cond_signal(&conexao->cond);
+	pthread_mutex_unlock(&conexao->mutex);
+	
+	return NULL;
 }
 
 bool processar_conexoes(){
@@ -520,17 +527,8 @@ void *__mpw_read(void* args) {
 			}
 
 			if (!gquiet) {
-				printf("Segmento recebido de %s:%d\n", inet_ntoa(addr.sin_addr), conexao.segmento.cabecalho.porta_origem);
-				printf(
-                    "\tsocket: %d\n"
-                    "\tip origem: %d"
-                    "\tporta %d | flags: %d\n"
-                    "\ttamanho: %d | checksum: %d\n\n",
-                    conexao.segmento.cabecalho.id,
-                    conexao.segmento.cabecalho.ip_origem,
-                    conexao.segmento.cabecalho.porta_origem, conexao.segmento.cabecalho.flags,
-                    conexao.segmento.cabecalho.tamanho_dados, conexao.segmento.cabecalho.checksum
-                );
+				printf("%lu: Segmento recebido de %s:%d\n", time(NULL), inet_ntoa(addr.sin_addr), conexao.segmento.cabecalho.porta_origem);
+				prints(conexao.segmento);
 			}
 
 			// Verifica o tipo da mensagem e insere na fila correta.
@@ -557,7 +555,7 @@ void *__mpw_read(void* args) {
 				inserir_fila(&gfila_conexoes, &conexao);
 				//inserir_fila(&gfila_filanova_millas_AQUI, &conexao);
 			} else {
-				inserir_fila(&gfila_mensagens, &conexao);
+				__processar_mensagens(&conexao);
 			}
 		}
 	}

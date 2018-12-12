@@ -24,6 +24,8 @@ typedef char bool;
 
 extern int gquiet;
 
+#define MIN(a,b) (a < b ? a : b)
+
 // Funções
 	// Realiza a verificação do RTT, 
 	// 0 se sucesso, erro caso contrário

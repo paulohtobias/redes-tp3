@@ -48,7 +48,7 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 
 			// Se estourar o temporizador.
 			if (retval == ETIMEDOUT) {
-				if(!gquiet){printf("Olha o timeout\n");}
+				if(!gquiet){printf("Timeout estourado.\n");}
 				conexao->tem_dado = 0;
 				__mpw_write(&pacote, true);
 			} else {
@@ -56,6 +56,7 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 					continue;
 				}
 				conexao->tem_dado = 0;
+				
 				// Se os dados chegaram normalmente.				
 				if (retval == 0 && 
 					!segmento_corrompido(&conexao->segmento)

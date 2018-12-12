@@ -32,7 +32,6 @@ extern int __socket_real;
 size_t max_conexoes;
 mpw_conexao_t *gconexoes;
 fila_t gfila_conexoes;
-fila_t gfila_mensagens;
 
 // Tempo em nanosegundos
 unsigned int gestimated_rtt;

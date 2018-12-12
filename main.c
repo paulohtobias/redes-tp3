@@ -7,7 +7,6 @@ int main(int argc, char *argv[]) {
 
 	void *mensagem;
 	size_t tamanho_mensagem;
-	char tamanho_mensagem_str[30];
 	char *nome_arquivo;
 	char *endereco;
 	in_port_t porta;
@@ -20,11 +19,11 @@ int main(int argc, char *argv[]) {
 		OPCAO_INIT('A', tipo_double, &probabilidade_atrasar, "PROB=0", "Probabilidade de atrasar pacotes"),
 		OPCAO_INIT('m', tipo_int, &max_conexoes, "MAX=3", "Número máximo de conexões simultâneas"),
 		OPCAO_INIT('B', tipo_int, &gfila_conexoes.tamanho_maximo, "BACKLOG=5", "Quantidade de conexões enfileiradas"),
-		OPCAO_INIT('b', tipo_int, &gfila_mensagens.tamanho_maximo, "MAX=100", "Tamanho do buffer para mensagens recebidas"),
 		OPCAO_INIT('s', tipo_str(0), &mensagem, "MSG=", "Mensagem a ser enviada"),
 		OPCAO_INIT('f', tipo_str(0), &nome_arquivo, "NOME=", "Nome do arquivo a ser enviado"),
 		OPCAO_INIT('i', tipo_str(0), &endereco, "IP=0.0.0.0", "Endereço ip para enviar/receber mensagens"),
-		OPCAO_INIT('p', tipo_int, &porta, "PORTA=9999", "Porta usada pelo processo")
+		OPCAO_INIT('p', tipo_int, &porta, "PORTA=9999", "Porta usada pelo processo"),
+		OPCAO_INIT('t', tipo_int, &tamanho_mensagem, "TAM", "Tamanho da mensagem a ser enviada/recebida")
 	};
 
 	parse_args(argc, argv, opcoes, sizeof opcoes / sizeof(opcao_t));
@@ -58,14 +57,22 @@ int main(int argc, char *argv[]) {
 	if (strlen(nome_arquivo) > 0) {
 		free(mensagem);
 
-		mensagem = carregar_arquivo(fopen(nome_arquivo, "r"), &tamanho_mensagem);
+		// Carrega o arquivo para o buffer.
+		FILE *in = fopen(nome_arquivo, "r");
+		if (in == NULL) {
+			handle_error(errno, "fopen");
+		}
+		tamanho_mensagem = fread(mensagem, 1, tamanho_mensagem, in);
+		fclose(in);
 
 		modo_enviar = true;
 	} else {
-		tamanho_mensagem = strlen(mensagem) + 1;
+		tamanho_mensagem++;
 
 		// Se o usuário passou uma string, então ele quer enviar arquivos.
-		if (tamanho_mensagem > 1) {
+		if (strlen(mensagem) > 0) {
+			tamanho_mensagem = MIN(tamanho_mensagem, strlen(mensagem) + 1);
+			((char *) mensagem)[tamanho_mensagem - 1] = '\0';
 			modo_enviar = true;
 		}
 	}
@@ -77,14 +84,6 @@ int main(int argc, char *argv[]) {
 			handle_error(errno, "criar_socket_servidor-bind");
 		}
 
-		// Envia o tamanho.
-		sprintf(tamanho_mensagem_str, "%lu", tamanho_mensagem);
-		retval = enviar(sfd, tamanho_mensagem_str, strlen(tamanho_mensagem_str) + 1);
-		if (retval == -1) {
-			fprintf(stderr, "Erro ao enviar o tamanho da mensagem\n");
-			return 1;
-		}
-
 		// Envia a mensagem.
 		retval = enviar(sfd, mensagem, tamanho_mensagem);
 		if (retval == -1) {
@@ -92,7 +91,6 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 	}  else {
-		//return maina(argc, argv);
 		// Faz o bind no endereço indicado.
 		int retval = mpw_bind(sfd, (struct sockaddr *) &addr, sizeof(addr));
 		if (retval == -1) {
@@ -106,14 +104,6 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 
-		// Recebe o tamanho da mensagem.
-		retval = ler(sfd, tamanho_mensagem_str, sizeof tamanho_mensagem_str);
-		if (retval == -1) {
-			fprintf(stderr, "Erro ao receber o tamanho da mensagem\n");
-			return 1;
-		}
-		sscanf(tamanho_mensagem_str, "%lu", &tamanho_mensagem);
-		size_t buffer_cru_tamanho = tamanho_mensagem;
 
 		if (1 || !gquiet) {
 			printf("tamanho: %lu\n", tamanho_mensagem);
@@ -122,6 +112,7 @@ int main(int argc, char *argv[]) {
 		
 		// Recebe a mensagem.
 		free(mensagem);
+		size_t buffer_cru_tamanho = tamanho_mensagem;
 		mensagem = malloc(tamanho_mensagem);
 		void *buffer_cru = malloc(buffer_cru_tamanho);
 		retval = receber(sfd, mensagem, tamanho_mensagem, &buffer_cru, &buffer_cru_tamanho);
