@@ -52,28 +52,39 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 				conexao->tem_dado = 0;
 				__mpw_write(&pacote, true);
 			} else {
+				if(!conexao->tem_dado){
+					continue;
+				}
+				conexao->tem_dado = 0;
 				// Se os dados chegaram normalmente.				
 				if (retval == 0 && 
 					!segmento_corrompido(&conexao->segmento)
 				){
 					// Pedido de finalizacao de conexao
-					if(CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)){
+					if(CHECAR_FLAG_EXCLUSIVO(conexao->segmento, TERMINAR_CONEXAO)){
+						conexao->tem_dado = 0;
 						pthread_mutex_unlock(&conexao->mutex);
+						if(!gquiet){printf("\033[0;34m############## TERMINEI A CONEXAO ##############\033[0m\n");}
 						return bytes_escritos;
 					}else 
 					// Verifica se é um ACK válido	
 					if(ack_esp == IS_ACK(conexao->segmento)){
 						break;
+					}else if(CHECAR_FLAG_EXCLUSIVO(conexao->segmento, BUFFER_CHEIO)){
+						ack_esp = 1;
+						conexao->tem_dado = 0;
 					}else{
 						conexao->tem_dado = 0;
 						__mpw_write(&pacote, true);
 					}
-				} 
+				}
 				// Se chegou qualquer outro pacote não ACK esperado
 				else {
 					// Buffer no destinatário encheu, não é possível alocar mais
-					if(CHECAR_FLAG_EXCLUSIVO(conexao->segmento, BUFFER_CHEIO)){
-						ack_esp = 1;
+					if(!gquiet){
+						printf("################################################\n");
+						printf("############        Corrompido        ##########\n");
+						printf("################################################\n");
 					}
 					conexao->tem_dado = 0;
 					__mpw_write(&pacote, true);
