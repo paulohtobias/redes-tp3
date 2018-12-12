@@ -339,11 +339,6 @@ int mpw_close(int sfd) {
 	pthread_mutex_unlock(&mutex_conexoes);
 
 	// Espera ACK de confirmação do fechamento da conexão.
-	if(!gquiet){
-		printf("antes do %s lock2\n", __func__);
-	}
-	
-
 	if(pthread_mutex_trylock(&conexao->mutex) == EBUSY){
 		pthread_mutex_unlock(&conexao->mutex);
 		pthread_mutex_lock(&conexao->mutex);
@@ -352,8 +347,9 @@ int mpw_close(int sfd) {
 		printf("Travei regiao critica\n");
 	}
 	int retval;
+	uint16_t heartbit = 1000;
 	conexao->tem_dado = 0;
-	while (!conexao->tem_dado) {
+	while (!conexao->tem_dado && heartbit > 0) {
 		retval = mpw_rtt(&conexao->cond, &conexao->mutex, gestimated_rtt);
 
 		// Se estourou o temporizador.
@@ -380,6 +376,7 @@ int mpw_close(int sfd) {
 				__mpw_write(&segmento);
 			}
 		}
+		heartbit--;
 	}
 
 	pthread_mutex_unlock(&conexao->mutex);
