@@ -38,7 +38,7 @@ ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 		
 		conexao->tem_dado = 0;
 		__mpw_write(&pacote, true);
-		// Realiza a tentativa de enviar o dado
+		// Espera o ACK
 		while (!conexao->tem_dado) {
 			if(!gquiet){printf("Inicio loop %s\n", __func__);}
 			int retval = mpw_rtt(

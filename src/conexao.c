@@ -352,7 +352,9 @@ int mpw_close(int sfd) {
 		pthread_mutex_unlock(&conexao->mutex);
 		pthread_mutex_lock(&conexao->mutex);
 	}
-	printf("Travei regiao critica\n");
+	if (!gquiet) {
+		printf("Travei regiao critica\n");
+	}
 	int retval;
 	conexao->tem_dado = 0;
 	while (!conexao->tem_dado) {
