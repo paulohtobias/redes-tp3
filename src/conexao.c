@@ -271,6 +271,9 @@ int mpw_close(int sfd) {
 	if (sfd >= max_conexoes || gconexoes[sfd].estado == MPW_CONEXAO_INATIVA) {
 		return -1;
 	}
+	if(!gquiet){
+		printf("antes do %s lock\n", __func__);
+	}
 	pthread_mutex_lock(&mutex_conexoes);
 	mpw_conexao_t *conexao = &gconexoes[sfd];
 	conexao->estado = MPW_CONEXAO_INATIVA;
@@ -286,7 +289,16 @@ int mpw_close(int sfd) {
 	pthread_mutex_unlock(&mutex_conexoes);
 
 	// Espera ACK de confirmação do fechamento da conexão.
-	pthread_mutex_lock(&conexao->mutex);
+	if(!gquiet){
+		printf("antes do %s lock2\n", __func__);
+	}
+	
+
+	if(pthread_mutex_trylock(&conexao->mutex) == EBUSY){
+		pthread_mutex_unlock(&conexao->mutex);
+		pthread_mutex_lock(&conexao->mutex);
+	}
+	printf("Travei regiao critica\n");
 	int retval;
 	conexao->tem_dado = 0;
 	while (!conexao->tem_dado) {

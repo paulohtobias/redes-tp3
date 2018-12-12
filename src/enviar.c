@@ -4,14 +4,13 @@ void __init_enviar(){
 	
 }
 
-int enviar(int sockfd, void *dados, size_t tamanho) {
-	//mpw_cabecalho_t ack;
+ssize_t enviar(int sockfd, void *dados, size_t tamanho) {
 	mpw_segmento_t pacote = (mpw_segmento_t){0};
 	mpw_conexao_t *conexao = &gconexoes[sockfd];
 	int indx = 0;
 	int seq_num = SEQ_1;
 	int ack_esp = ACK_1;
-	int bytes_escritos = 0;
+	ssize_t bytes_escritos = 0;
 
 	pacote.cabecalho.socket = conexao->id;
 	pacote.cabecalho.ip_origem = conexao->ip_origem;
@@ -29,7 +28,7 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 			seq_num = 0;
 		}
 
-		if(!gquiet){printf("Definindo o pacote\n");}
+		if(!gquiet){printf("Definindo o pacote: %d\n", tamanho_pacote);}
 		pacote.cabecalho.tamanho_dados = tamanho_pacote;
 		pacote.cabecalho.flags = seq_num;
 
@@ -38,7 +37,7 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 		indx += tamanho_pacote;
 
 		// Realiza o envio do pacote
-		if(!gquiet){printf("Enviando o pacote\n");}
+		if(!gquiet){printf("Enviando o pacote\nFlags: %d\n", pacote.cabecalho.flags);}
 		pthread_mutex_lock(&(conexao->mutex));
 		
 		conexao->tem_dado = 0;
@@ -46,7 +45,10 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 		// Realiza a tentativa de enviar o dado
 		while (!conexao->tem_dado) {
 			if(!gquiet){printf("Inicio loop\n");}
-			int retval = mpw_rtt(&conexao->cond, &conexao->mutex, gestimated_rtt);
+			int retval = mpw_rtt(
+					&conexao->cond, 
+					&conexao->mutex, 
+					gestimated_rtt);
 
 			// Se estourar o temporizador.
 			if (retval == ETIMEDOUT) {
@@ -54,16 +56,24 @@ int enviar(int sockfd, void *dados, size_t tamanho) {
 				conexao->tem_dado = 0;
 				__mpw_write(&pacote);
 			} else {
-				// Se os dados chegaram normalmente.
-				// SEQ_1 >> 2 == ACK_1; SEQ_2 >> 2 == ACK_2
-				// && segmento_valido(&conexao->segmento, seq_num >> 2
-				if(!gquiet){printf("Segmento valido\n");}
+				// Se os dados chegaram normalmente.				
 				if (retval == 0 && 
 					!segmento_corrompido(&conexao->segmento) && 
 					ack_esp == IS_ACK(conexao->segmento)
 				){
+					printf("Agora !!!!!!!1\n");
+					sleep(20);
 					break;
-				} else {
+				} 
+				// Se chegou qualquer outro pacote não ACK esperado
+				else {
+					// Buffer no destinatário encheu, não é possível alocar mais
+					if(CHECAR_FLAG_EXCLUSIVO(conexao->segmento, BUFFER_CHEIO)){
+						ack_esp = 1;
+					}else if(CHECAR_FLAG(conexao->segmento, TERMINAR_CONEXAO)){
+						pthread_mutex_unlock(&conexao->mutex);
+						return bytes_escritos;
+					}
 					conexao->tem_dado = 0;
 					__mpw_write(&pacote);
 				}

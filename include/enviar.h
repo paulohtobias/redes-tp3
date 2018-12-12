@@ -3,6 +3,6 @@
 
 #include "conexao.h"
 
-int enviar(int sockfd, void *dados, size_t tamanho);
+ssize_t enviar(int sockfd, void *dados, size_t tamanho);
 
 #endif //ENVIAR_H
