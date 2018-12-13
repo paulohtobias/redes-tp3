@@ -9,7 +9,7 @@ typedef struct mpw_conexao_t {
 	enum {MPW_CONEXAO_INATIVA, MPW_CONEXAO_CONECTANDO, MPW_CONEXAO_ESTABELECIDA} estado;
 	
 	/// Atributos para identificar o remetente.
-	int id; //meu id do lado de lá. Uso pra me identificar ao mandar as mensagens. TODO: apagar
+	int id;
 	in_addr_t ip_origem;
 	in_port_t porta_origem;
 

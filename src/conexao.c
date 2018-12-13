@@ -309,7 +309,6 @@ void __mpw_cleanup() {
 
 void INThandler(int sig) {
 	signal(sig, SIG_IGN);
-	//TODO: iterar em todas as conexões abertas.
 	int fd;
 	for (fd = 0; fd < max_conexoes; fd++) {
 		mpw_close(fd);
@@ -515,9 +514,6 @@ void *__mpw_read(void* args) {
 			// Verifica o tipo da mensagem e insere na fila correta.
 			if (CHECAR_FLAG_EXCLUSIVO(conexao.segmento, INICIAR_CONEXAO)) {
 				// Se a conexão já foi iniciada (e ainda não foi estabelecida), não a coloque na fila de conexões.
-				//processar_conexoes();
-
-				//TODO: APAGAR ISSO AQUI E CHAMAR A processar_conexões quando ela tiver pronta
 				pthread_mutex_lock(&mutex_conexoes);
 				id = conexao.segmento.cabecalho.id;
 				for (i = 0; i < max_conexoes; i++) {
