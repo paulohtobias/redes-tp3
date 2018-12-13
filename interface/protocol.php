@@ -9,11 +9,9 @@
 	$type = $_POST['type'];
 	if($type == 0){
 		$size = strlen($dado);
-		system("sh msg.sh ".$size.' '.str_replace(" ", "_", $dado).' '.$taxa_corromper." ".$taxa_perder." ".$taxa_atrasar." ".$rtt_ms);
+		system("sh msg.sh ".$size.' '.'"'.$dado.'"'.' '.$taxa_corromper." ".$taxa_perder." ".$taxa_atrasar." ".$rtt_ms);
 		
 		echo file_get_contents("mensagem");
 		echo ";".file_get_contents("mensagem_crua")."\n";
-	}else{
-		system("../main.out -q ".$padrao." -t ".$size.' -f "'.$dado.'" &'."../main.out -q -t ".$size." &");
 	}
 ?>
