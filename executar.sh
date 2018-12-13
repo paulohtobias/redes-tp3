@@ -8,12 +8,10 @@ descarte=$5
 atraso=$6
 
 # Abre o receptor
-#./main.out -t 5753 -C 70 -A 70 -D 70 &
-./main.out -t $tamanho -C $corrompimento -D $descarte -A $atraso &
+./main.out -t $tamanho -C $corrompimento -D $descarte -A $atraso -q &
 
 # Abre o remetente
-#./main.out -f instancias/rfc-tcp.txt -t 5753 -C 70 -A 70 -D 70
-./main.out -$modo $mensagem -t $tamanho -C $corrompimento -D $descarte -A $atraso &
+./main.out -$modo $mensagem -t $tamanho -C $corrompimento -D $descarte -A $atraso -q &
 
 # Espera os processos terminarem
 wait
