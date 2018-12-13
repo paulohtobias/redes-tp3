@@ -140,9 +140,9 @@
 			}
 		}).done(function(str_data){
 			msgs = str_data.split(";");
-			console.log(msgs);
-			$("#msgRecebidaResposta").html(msgs[0]);
-			$("#msgCruaRecebidaResposta").html(msgs[1]);
+			console.log(str_data);
+			$("#msgRecebidaResposta").html(msgs[0].replace("_"," "));
+			$("#msgCruaRecebidaResposta").html(msgs[1].replace("_"," "));
 		});
 	});
 
