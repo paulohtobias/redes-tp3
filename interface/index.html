@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<title>Protocolo MPW</title>
+
+	<!-- Favicons -->
+	<link rel="stylesheet" href="./vendor/fontawesome-free-5.6.0-web/css/all.css">
+
+	<!-- Bootstrap -->
+	<link rel="stylesheet" href="./vendor/bootstrap-4.1.3-dist/css/bootstrap.css">
+	<script src="./vendor/jquery-3.3.1/jquery-3.3.1.slim.min.js"></script>
+	<script src="./vendor/popper/popper.min.js"></script>
+	<script src="./vendor/bootstrap-4.1.3-dist/js/bootstrap.js"></script>
+
+	<!-- Arquivos de Personalização -->
+	<link rel="stylesheet" href="./css/index.css">
+	<script src="./js/index.js"></script>
+</head>
+
+<body>
+	<div class="container-fluid" style="background-image: linear-gradient(30deg, red, yellow); height: 100vh;">
+		<!-- Configurações do aplicativo -->
+		<div id="configuracoes" class="row collapse pt-2 pl-2">
+			<div class="col-12">
+				<div class="form-row">
+					<div class="col">
+						<input type="text" class="form-control" placeholder="RTT (ms)">
+					</div>
+					<div class="col">
+						<input type="text" class="form-control" placeholder="Corromper (0-99)">
+					</div>
+					<div class="col">
+						<input type="text" class="form-control" placeholder="Perder (0-99)">
+					</div>
+					<div class="col">
+						<input type="text" class="form-control" placeholder="Atrasar (0-99)">
+					</div>
+					<div class="col-2">
+						<button type="button" class="btn btn-success">Salvar</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Header -->
+		<div class="d-flex justify-content-between pt-2">
+			<div class="align-self-center">
+				<i class="fa fa-arrow-up" aria-hidden="true"></i>
+				<strong> MPW </strong>
+				<i class="fa fa-arrow-down" aria-hidden="true"></i>
+			</div>
+			<div>
+				<button id="btnMensagem" class="btn btn-transparent" onclick="showMensagem()">Enviar Mensagem</button>
+				<button id="btnArquivo" class="btn btn-transparent" onclick="showArquivo()">Enviar Arquivo</button>
+				<a class="btn btn-transparent text-dark" data-toggle="collapse" href="#configuracoes" aria-expanded="false"
+				 aria-controls="configuracoes">
+					<i class="fa fa-cog" aria-hidden="true"></i>
+				</a>
+			</div>
+		</div>
+		<hr class="my-2">
+
+		<!-- Conteúdo -->
+		<div id="mensagem" class="col-12">
+			<h2 class="text-center mt-4 mb-5">Mensagem</h2>
+			<div class="row">
+				<div class="col-12 col-md-6">
+					<div class="form-group">
+						<div class="col-12 mb-2">
+							<textarea id="textMessage" class="form-control" cols="30" rows="10" placeholder="Mensagem a enviar"></textarea>
+						</div>
+						<div class="col-12 d-flex justify-content-center">
+							<button type="button" id="messageButtonSubmit" class="btn btn-primary">Enviar</button>
+						</div>
+					</div>
+				</div>
+
+				<div class="col-12 col-md-6">
+					<div class="card">
+						<div class="card-header">
+							<h4>Mensagem Recebida</h4>
+						</div>
+						<div class="card-body">
+							<div>
+								<strong>Mensagem normal</strong>
+								<p id="msgRecebidaResposta"></p>
+								<hr>
+								<strong>Mensagem com os erros</strong>
+								<p id="msgCruaRecebidaResposta"></p>
+							</div>
+						</div>
+					</div>
+				</div>
+
+			</div>
+		</div>
+
+		<div id="arquivo" class="col-12 d-none">
+			<h2 class="text-center mt-4 mb-5">Arquivo</h2>
+			<p>asd</p>
+		</div>
+	</div>
+</body>
+
+</html>
+
+<script>
+	function showMensagem() {
+		$("#mensagem").removeClass("d-none");
+		$("#arquivo").addClass("d-none");
+	}
+
+	function showArquivo() {
+		$("#arquivo").removeClass("d-none");
+		$("#mensagem").addClass("d-none");
+	}
+
+	var ip_destino = "0.0.0.0";
+	var porta_destino = "2000";
+	var taxa_corromper = "30";
+	var taxa_perder = "30";
+	var taxa_atrasar = "30";
+
+	$('#messageButtonSubmit').on('click', function() {
+		$.ajax({
+			type:"POST",
+			url: "protocol.php",
+			data: {
+				type: 0,
+				ip_destino: ip_destino,
+				porta_destino: porta_destino,
+				taxa_corromper: taxa_corromper,
+				taxa_perder: taxa_perder,
+				taxa_atrasar: taxa_atrasar,
+				dado: $("#textMessage").val()
+			}
+		}).done(function(str_data){
+			msgs = str_data.split(";");
+			console.log(msgs);
+			$("#msgRecebidaResposta").html(msgs[0]);
+			$("#msgCruaRecebidaResposta").html(msgs[1]);
+		});
+	});
+
+</script>

@@ -1,0 +1,9 @@
+.btn-transparent{
+	background: transparent;
+	border: none;
+}
+
+.btn-transparent:hover{
+	background: rgba(50, 50, 50, 0.3);
+	border: none;
+}
