@@ -28,19 +28,19 @@
 			<div class="col-12">
 				<div class="form-row">
 					<div class="col">
-						<input type="text" class="form-control" placeholder="RTT (ms)">
+						<input id="RTT" type="text" class="form-control" placeholder="RTT (ms)">
 					</div>
 					<div class="col">
-						<input type="text" class="form-control" placeholder="Corromper (0-99)">
+						<input id="Corromper" type="text" class="form-control" placeholder="Corromper (0-99)">
 					</div>
 					<div class="col">
-						<input type="text" class="form-control" placeholder="Perder (0-99)">
+						<input id="Perder" type="text" class="form-control" placeholder="Perder (0-99)">
 					</div>
 					<div class="col">
-						<input type="text" class="form-control" placeholder="Atrasar (0-99)">
+						<input id="Atrasar" type="text" class="form-control" placeholder="Atrasar (0-99)">
 					</div>
 					<div class="col-2">
-						<button type="button" class="btn btn-success">Salvar</button>
+						<button id="configEnvio" type="button" class="btn btn-success">Salvar</button>
 					</div>
 				</div>
 			</div>
@@ -55,7 +55,7 @@
 			</div>
 			<div>
 				<button id="btnMensagem" class="btn btn-transparent" onclick="showMensagem()">Enviar Mensagem</button>
-				<button id="btnArquivo" class="btn btn-transparent" onclick="showArquivo()">Enviar Arquivo</button>
+				<!-- <button id="btnArquivo" class="btn btn-transparent" onclick="showArquivo()">Enviar Arquivo</button> -->
 				<a class="btn btn-transparent text-dark" data-toggle="collapse" href="#configuracoes" aria-expanded="false"
 				 aria-controls="configuracoes">
 					<i class="fa fa-cog" aria-hidden="true"></i>
@@ -65,7 +65,8 @@
 		<hr class="my-2">
 
 		<!-- Conteúdo -->
-		<div id="mensagem" class="col-12">
+		<h1 id="mpwHeading" class="display-1 text-center mt-5 pt-5">Protocolo MPW</h1>
+		<div id="mensagem" class="col-12 d-none">
 			<h2 class="text-center mt-4 mb-5">Mensagem</h2>
 			<div class="row">
 				<div class="col-12 col-md-6">
@@ -111,7 +112,7 @@
 <script>
 	function showMensagem() {
 		$("#mensagem").removeClass("d-none");
-		$("#arquivo").addClass("d-none");
+		$("#mpwHeading").addClass("d-none");
 	}
 
 	function showArquivo() {
@@ -119,8 +120,7 @@
 		$("#mensagem").addClass("d-none");
 	}
 
-	var ip_destino = "0.0.0.0";
-	var porta_destino = "2000";
+	var rtt_ms = "20";
 	var taxa_corromper = "30";
 	var taxa_perder = "30";
 	var taxa_atrasar = "30";
@@ -131,8 +131,7 @@
 			url: "protocol.php",
 			data: {
 				type: 0,
-				ip_destino: ip_destino,
-				porta_destino: porta_destino,
+				rtt_ms: rtt_ms,
 				taxa_corromper: taxa_corromper,
 				taxa_perder: taxa_perder,
 				taxa_atrasar: taxa_atrasar,
@@ -144,6 +143,13 @@
 			$("#msgRecebidaResposta").html(msgs[0].replace("_"," "));
 			$("#msgCruaRecebidaResposta").html(msgs[1].replace("_"," "));
 		});
+	});
+
+	$("#configEnvio").on("click",function(){
+		rtt_ms = $("#RTT").val();
+		taxa_corromper = Integer.parseInt($("#Corromper").val())%100;
+		taxa_perder = Integer.parseInt($("#Perder").val())%100;
+		taxa_atrasar = Integer.parseInt($("#Atrasar").val())%100;
 	});
 
 </script>
