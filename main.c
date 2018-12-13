@@ -87,15 +87,6 @@ int main(int argc, char *argv[]) {
 		if (retval == -1) {
 			handle_error(errno, "criar_socket_servidor-bind");
 		}
-		
-		// Escreve os dois buffers em disco.
-		FILE *out = fopen("asdasdasd", "w");
-		if (out == NULL) {
-			handle_error(errno, "fopen(mensagem)");
-		}
-		fwrite(mensagem, 1, tamanho_mensagem, out);
-		fclose(out);
-
 
 		// Envia a mensagem.
 		retval = enviar(sfd, mensagem, tamanho_mensagem);
